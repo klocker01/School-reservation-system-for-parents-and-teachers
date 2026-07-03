@@ -1,0 +1,52 @@
+{% load static %}
+<!doctype html>
+<html lang="lt">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Konsultacijų registracija{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'reservations/style.css' %}">
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap topbar__inner">
+      <a class="brand" href="{% url 'home' %}">
+        <div class="brand__logo">
+          <img src="{% static 'logo_herojus.png' %}" alt="Herojus">
+        </div>
+        <div class="brand__text">
+          <div class="brand__title">Tėvų registracija pas mokytojus</div>
+        </div>
+      </a>
+
+      <nav class="nav">
+        {% if user.is_authenticated %}
+          <a class="nav__link" href="{% url 'home' %}?tipas=individualus">Individualūs</a>
+          <a class="nav__link" href="{% url 'home' %}?tipas=dalykininku">Dalykininkų</a>
+          <a class="nav__link" href="{% url 'my_reservations' %}">Mano laikai</a>
+          <a class="nav__link" href="{% url 'edit_profile' %}">Vaiko profilis</a>
+          {% if is_teacher %}
+            <a class="nav__link nav__link--teacher" href="{% url 'teacher_dashboard' %}">Mokytojo grafikas</a>
+          {% endif %}
+          <a class="btn btn--ghost" href="{% url 'account_logout' %}">Atsijungti</a>
+        {% endif %}
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    {% if messages %}
+    {% for message in messages %}
+        <div class="alert {{ message.tags }}">
+            {{ message }}
+        </div>
+    {% endfor %}
+{% endif %}
+
+    {% block content %}{% endblock %}
+</main>
+
+
+  
+</body>
+</html>

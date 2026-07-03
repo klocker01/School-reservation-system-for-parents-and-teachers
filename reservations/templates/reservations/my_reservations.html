@@ -1,0 +1,64 @@
+{% extends "reservations/base.html" %}
+{% block title %}Mano rezervacijos{% endblock %}
+
+{% block content %}
+  <div class="stack">
+
+    <div class="card">
+      <div class="card__hd">
+        <h1 class="card__title">Mano rezervacijos</h1>
+        <p class="card__sub">Čia matosi visi tavo užsakyti konsultacijų laikai.</p>
+      </div>
+      
+      <div class="card__bd">
+        {% if items %}
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Laikas</th>
+                  <th>Mokytojas</th>
+                  <th>Kabinetas</th>
+                  <th>Veiksmas</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for item in items %}
+                  <tr>
+                    <td>{{ item.r.date }}</td>
+                    <td><strong>{{ item.r.time|time:"H:i" }}</strong></td>
+                    <td>{{ item.r.teacher.vardas }} {{ item.r.teacher.pavarde }}</td>
+                    <td>
+                      {% if item.r.cabinet %}
+                        {{ item.r.cabinet.pavadinimas }}
+                      {% elif item.r.teacher.kabinetas %}
+                        {{ item.r.teacher.kabinetas.pavadinimas }}
+                      {% else %}
+                        —
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if item.can_cancel %}
+                        <a class="btn btn--bad" href="{% url 'cancel_reservation' item.r.id %}?next={{ request.path }}">
+                          Atšaukti
+                        </a>
+                      {% else %}
+                        <span class="badge">Likę &lt; 24 h</span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="alert">Rezervacijų dar nėra.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <a class="btn btn--ghost" href="{% url 'home' %}">⬅ Atgal į datas</a>
+
+  </div>
+{% endblock %}

@@ -1,0 +1,108 @@
+{% extends "reservations/base.html" %}
+{% block title %}Vaikai{% endblock %}
+
+{% block content %}
+<div class="stack">
+
+  
+  <div class="card">
+    <div class="card__hd">
+      <h1 class="card__title">Vaikai</h1>
+      <p class="card__sub">
+        Pasirink vaiką – jam bus rezervuojami laikai.
+      </p>
+    </div>
+
+    <div class="card__bd">
+      {% if children %}
+        <div class="list">
+          {% for c in children %}
+            <div class="item" style="flex-wrap:wrap; gap:10px;">
+              <div class="item__main" style="min-width:200px;">
+                <div class="item__title">
+                  {{ c.first_name }} {{ c.last_name }}{% if c.klase %} · {{ c.klase.pavadinimas }}{% endif %}
+                </div>
+
+                <div class="item__meta">
+                  {% if active_child and active_child.id == c.id %}
+                    <span class="badge badge--free">Pasirinktas</span>
+                  {% else %}
+                    <span class="badge">Nepasirinktas</span>
+                  {% endif %}
+                </div>
+              </div>
+
+              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                {% if not active_child or active_child.id != c.id %}
+                  <a class="btn btn--ghost" href="{% url 'set_active_child' c.id %}">
+                    Pasirinkti
+                  </a>
+                {% endif %}
+
+  
+                <a class="btn btn--ghost" href="{% url 'edit_profile' %}?edit={{ c.id }}">
+                  Redaguoti
+                </a>
+
+                <form method="post" action="{% url 'delete_child' c.id %}"
+                      onsubmit="return confirm('Ištrinti {{ c.first_name }} {{ c.last_name }}?')">
+                  {% csrf_token %}
+                  <button class="btn btn--bad" type="submit">Ištrinti</button>
+                </form>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="alert">
+          Dar nepridėjai nei vieno vaiko.
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  
+  <div class="card">
+    <div class="card__hd">
+      {% if edit_child %}
+        <h2 class="card__title">Redaguoti vaiką</h2>
+        <p class="card__sub">Pakeisk duomenis ir spausk „Išsaugoti“.</p>
+      {% else %}
+        <h2 class="card__title">Pridėti vaiką</h2>
+        <p class="card__sub">
+          Įvesk vaiko vardą, pavardę ir klasę.
+        </p>
+      {% endif %}
+    </div>
+
+    <div class="card__bd">
+      <form method="post" action="{% url 'add_child' %}" class="form-row" style="max-width:420px;">
+        {% csrf_token %}
+
+        {% if edit_child %}
+          <input type="hidden" name="child_id" value="{{ edit_child.id }}">
+        {% endif %}
+
+        <label>Vardas</label>
+        {{ child_form.first_name }}
+
+        <label>Pavardė</label>
+        {{ child_form.last_name }}
+
+        <label>Klasė</label>
+        {{ child_form.klase }}
+
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
+          {% if edit_child %}
+            <button class="btn" type="submit">Išsaugoti</button>
+            <a class="btn btn--ghost" href="{% url 'edit_profile' %}">Atšaukti</a>
+          {% else %}
+            <button class="btn" type="submit">Pridėti</button>
+          {% endif %}
+        </div>
+      </form>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

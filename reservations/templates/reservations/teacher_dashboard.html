@@ -1,0 +1,186 @@
+{% extends "reservations/base.html" %}
+{% block title %}Mano grafikas{% endblock %}
+
+{% block content %}
+<div class="stack">
+
+  <!-- Antraštė -->
+  <div class="card">
+    <div class="card__hd">
+      <h1 class="card__title">Mano konsultacijų grafikas</h1>
+      <p class="card__sub">
+        {{ mokytojas.vardas }} {{ mokytojas.pavarde }}
+        {% if mokytojas.kabinetas %} · kabinetas {{ mokytojas.kabinetas.pavadinimas }}{% endif %}
+      </p>
+    </div>
+  </div>
+
+  <!-- Pridėti darbo laiką -->
+  <div class="card">
+    <div class="card__hd">
+      <h2 class="card__title">Pridėti darbo laiką</h2>
+      <p class="card__sub">Nurodykite datą ir laiką, kada esate pasiekiamas individualiems pokalbiams</p>
+    </div>
+    <div class="card__bd">
+      <form method="post" action="{% url 'teacher_add_workinghours' %}" class="form-row" style="max-width:480px;">
+        {% csrf_token %}
+
+        <label>Data</label>
+        {{ wh_form.date }}
+
+        <div style="display:flex; gap:16px; flex-wrap:wrap;">
+          <div style="flex:1; min-width:120px;">
+            <label>Pradžia</label>
+            {{ wh_form.start_time }}
+          </div>
+          <div style="flex:1; min-width:120px;">
+            <label>Pabaiga</label>
+            {{ wh_form.end_time }}
+          </div>
+          <div style="flex:1; min-width:120px;">
+            <label>Laiko intervalas</label>
+            {{ wh_form.interval }}
+          </div>
+        </div>
+
+        <div style="margin-top:16px; max-width:260px;">
+          <label>Kabinetas</label>
+          {{ wh_form.cabinet }}
+          <p style="font-size:0.8rem; color:var(--muted); margin-top:6px;">
+            Jei nepasirinksite, bus naudojamas jūsų numatytas kabinetas.
+          </p>
+        </div>
+
+        <!-- pertrauka – nebūtina, daugiau galima pridėti po išsaugojimo -->
+        <div style="margin-top:16px;">
+          <label style="font-weight:700; margin-bottom:8px; display:block;">Pertrauka (nebūtina)</label>
+          <div style="display:flex; gap:12px; flex-wrap:wrap;">
+            <div style="flex:1; min-width:100px;">
+              <label>Pradžia</label>
+              <input type="time" name="break_start">
+            </div>
+            <div style="flex:1; min-width:100px;">
+              <label>Pabaiga</label>
+              <input type="time" name="break_end">
+            </div>
+      
+          </div>
+          <p style="font-size:0.8rem; color:var(--muted); margin-top:6px;">Jei reikia daugiau pertraukų – jas galima pridėti po išsaugojimo.</p>
+        </div>
+
+        <div style="margin-top:20px;">
+          <button class="btn" type="submit">Pridėti laikus pokalbiams</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Mano laikai – prie kiekvieno bloko iskart matosi laisvi/uzimti laikai ir galima tvarkyti pertraukas -->
+  <div class="card">
+    <div class="card__hd">
+      <h2 class="card__title">Mano grafikas</h2>
+      
+    </div>
+    <div class="card__bd">
+
+      {% if blokai %}
+        <div class="list">
+          {% for blokas in blokai %}
+            {% with wh=blokas.wh %}
+            <div class="item" style="align-items:flex-start; flex-direction:column; gap:12px;">
+
+              <!-- Darbo laiko eilutė -->
+              <div style="display:flex; width:100%; align-items:center; gap:12px; flex-wrap:wrap;">
+                <div class="item__main">
+                  <div class="item__title">
+                    {{ wh.date|date:"l, Y-m-d" }} · {{ wh.start_time|time:"H:i" }} – {{ wh.end_time|time:"H:i" }}
+                    · {% if wh.tipas == "dalykininku" %}Dalykininkų{% else %}Individualūs{% endif %}
+                    · kabinetas: {% if wh.cabinet %}{{ wh.cabinet.pavadinimas }}{% else %}{{ mokytojas.kabinetas|default:"—" }}{% endif %}
+                  </div>
+                </div>
+
+                <!-- Ištrinti darbo laiką -->
+                <form method="post" action="{% url 'teacher_delete_workinghours' wh.id %}" style="margin-left:auto;">
+                  {% csrf_token %}
+                  <button class="btn btn--bad" type="submit"
+                    onclick="return confirm('Ištrinti šį darbo laiką')">
+                    Ištrinti
+                  </button>
+                </form>
+              </div>
+
+              <!-- Laisvi / uzimti laikai -->
+              <div class="times">
+                {% for s in blokas.slots %}
+                  {% if s.status == "free" %}
+                    <span class="pill pill--free">✅ {{ s.time }} · laisva</span>
+                  {% else %}
+                    <span class="pill" title="{{ s.by }}">{{ s.time }} · {{ s.by }}</span>
+                  {% endif %}
+                {% endfor %}
+              </div>
+
+              <!-- Pertraukos -->
+              {% if wh.breaks.all %}
+                <div style="display:flex; flex-wrap:wrap; gap:8px; padding-left:4px;">
+                  {% for b in wh.breaks.all %}
+                    <div style="display:flex; align-items:center; gap:6px;">
+                      <span class="badge">
+                        ☕ {{ b.start_time|time:"H:i" }}–{{ b.end_time|time:"H:i" }}
+                        {% if b.description %}· {{ b.description }}{% endif %}
+                      </span>
+                      <form method="post" action="{% url 'teacher_delete_break' b.id %}">
+                        {% csrf_token %}
+                        <button class="btn btn--bad btn--time" type="submit" title="Ištrinti pertrauką">✕</button>
+                      </form>
+                    </div>
+                  {% endfor %}
+                </div>
+              {% endif %}
+
+              <!-- Pridėti pertrauką – iskart prie sio bloko, niekur eiti nereikia -->
+              <details style="width:100%;">
+                <summary class="btn btn--ghost" style="cursor:pointer; display:inline-block;">+ Pridėti pertrauką</summary>
+                <form method="post" action="{% url 'teacher_add_break' wh.id %}"
+                  class="form-row" style="max-width:400px; margin-top:10px; padding-left:4px;">
+                  {% csrf_token %}
+
+                  <div style="display:flex; gap:12px; flex-wrap:wrap;">
+                    <div style="flex:1; min-width:100px;">
+                      <label>Pradžia</label>
+                      <input type="time" name="start_time" required>
+                    </div>
+                    <div style="flex:1; min-width:100px;">
+                      <label>Pabaiga</label>
+                      <input type="time" name="end_time" required>
+                    </div>
+                    <div style="flex:2; min-width:140px;">
+                      <label>Aprašymas (nebūtinas)</label>
+                      <input type="text" name="description" maxlength="100" placeholder="pvz. pietūs">
+                    </div>
+                  </div>
+
+                  <p style="font-size:0.8rem; color:var(--muted); margin-top:6px;">
+                    Pertraukos pridėti negalima, jei tuo laiku jau yra tėvų rezervacija.
+                  </p>
+
+                  <div style="margin-top:10px;">
+                    <button class="btn" type="submit">Pridėti pertrauką</button>
+                  </div>
+                </form>
+              </details>
+
+            </div>
+            {% endwith %}
+          {% endfor %}
+        </div>
+
+      {% else %}
+        <div class="alert">Dar nėra būsimų darbo laikų</div>
+      {% endif %}
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}

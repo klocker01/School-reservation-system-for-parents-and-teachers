@@ -1,0 +1,37 @@
+{% extends "reservations/base.html" %}
+{% block title %}Atšaukti rezervaciją{% endblock %}
+
+{% block content %}
+  <div class="stack">
+
+    <div class="card" style="max-width:560px; margin:0 auto;">
+      <div class="card__hd">
+        <h1 class="card__title">Atšaukti rezervaciją?</h1>
+        <p class="card__sub">Patvirtink, jei tikrai nori atšaukti.</p>
+      </div>
+
+      <div class="card__bd">
+        <div class="stack">
+          <div class="item">
+            <div class="item__main">
+              <div class="item__title">{{ r.date }} · {{ r.time|time:"H:i" }}</div>
+              <div class="item__meta">
+                {{ r.teacher.vardas }} {{ r.teacher.pavarde }}
+                {% if r.teacher.kabinetas %} · {{ r.teacher.kabinetas.pavadinimas }}{% endif %}
+              </div>
+            </div>
+            <span class="badge">Rezervacija</span>
+          </div>
+
+          <form method="post" style="display:flex; gap:10px; flex-wrap:wrap;">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ next_url }}">
+            <button class="btn btn--bad" type="submit">Taip, atšaukti</button>
+            <a class="btn btn--ghost" href="{% if next_url %}{{ next_url }}{% else %}{% url 'my_reservations' %}{% endif %}">Grįžti</a>
+          </form>
+        </div>
+      </div>
+    </div>
+
+  </div>
+{% endblock %}

@@ -1,0 +1,18 @@
+{% extends "reservations/base.html" %}
+{% block title %}Prisijungimas{% endblock %}
+
+{% block content %}
+  <div class="card" style="max-width:460px; margin:40px auto;">
+    
+
+    <div class="card__bd" style="text-align:center;">
+      <p class="card__sub" style="margin-top:0;">
+        Prisijungimas galimas tik per Google paskyrą.
+      </p>
+
+      <a class="btn btn--good" href="/accounts/google/login/" style="margin-top:10px;">
+        Prisijungti per Google
+      </a>
+    </div>
+  </div>
+{% endblock %}

@@ -1,0 +1,77 @@
+{% extends "reservations/base.html" %}
+{% block title %}Patvirtinti rezervaciją{% endblock %}
+
+{% block content %}
+<div class="stack">
+
+  <div class="card" style="max-width:600px; margin:0 auto;">
+    <div class="card__hd">
+      <h1 class="card__title">Patvirtinti rezervaciją</h1>
+      <p class="card__sub">Patikrink informaciją ir patvirtink.</p>
+    </div>
+
+    <div class="card__bd" style="overflow:visible;">
+      <div class="stack">
+
+        <!-- mokytojas -->
+        <div class="item">
+          <div class="item__main">
+            <div class="item__title">
+              {{ teacher.vardas }} {{ teacher.pavarde }}
+            </div>
+            <div class="item__meta">
+              Data: {{ date }}
+              {% if kabinetas %}
+                · Kabinetas: {{ kabinetas.pavadinimas }}
+              {% endif %}
+            </div>
+          </div>
+          <span class="badge">Mokytojas</span>
+        </div>
+
+        <!-- laikai -->
+        <div class="item">
+          <div class="item__main">
+            <div class="item__title">Pasirinktas laikas</div>
+            <div class="item__meta" style="margin-top:6px;">
+              {% for t in times %}
+                <span class="badge" style="margin-right:6px; margin-top:6px; display:inline-block;">
+                  {{ t }}
+                </span>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <!-- veiksmai -->
+        <form
+          method="post"
+          action="{% url 'reserve_timeslot' teacher.id %}"
+          style="margin-top:12px;"
+        >
+          {% csrf_token %}
+
+          <input type="hidden" name="date" value="{{ date }}">
+          {% for t in times %}
+            <input type="hidden" name="times" value="{{ t }}">
+          {% endfor %}
+          <input type="hidden" name="confirm" value="yes">
+          <input type="hidden" name="tipas" value="{{ tipas }}">
+
+          <div style="display:flex; gap:12px; flex-wrap:wrap;">
+            <button class="btn btn--good" type="submit">
+              Patvirtinti
+            </button>
+
+            <a class="btn btn--ghost" href="{% url 'teacher_schedule' date %}?tipas={{ tipas }}">
+              Atšaukti
+            </a>
+          </div>
+        </form>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

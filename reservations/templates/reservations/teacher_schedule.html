@@ -1,0 +1,119 @@
+{% extends "reservations/base.html" %}
+{% block title %}Grafikas {{ date }}{% endblock %}
+
+{% block content %}
+<div class="stack">
+
+  <div class="card">
+    <div class="card__hd">
+      <div class="page-head">
+        <div>
+          <h1 class="card__title">
+            {% if tipas == "dalykininku" %}Dalykininku pokalbiai{% else %}Individualus pokalbiai{% endif %}
+            — {{ date }}
+          </h1>
+
+          {% if active_child %}
+            <p class="card__sub">
+              pasirinktas mokinys:
+              <strong>
+                {{ active_child.first_name }} {{ active_child.last_name }}
+                {% if active_child.klase %}({{ active_child.klase }}){% endif %}
+              </strong>
+              · <a href="{% url 'edit_profile' %}">keisti</a>
+            </p>
+          {% else %}
+            <p class="card__sub">
+              Vaikas nepasirinktas · <a href="{% url 'edit_profile' %}">pasirinkti profilyje</a>
+            </p>
+          {% endif %}
+        </div>
+
+        <a class="btn btn--ghost" href="{% url 'home' %}">⬅ atgal</a>
+      </div>
+    </div>
+
+    <div class="card__bd">
+      <form method="get" style="margin-bottom:16px; max-width:400px;">
+          <input type="hidden" name="tipas" value="{{ tipas }}">
+          <input type="text" name="q" placeholder="ieškoti mokytojo..." value="{{ q|default:'' }}">
+      </form>
+
+      {% if data %}
+        <div class="list">
+
+          {% for item in data %}
+            <div class="item" style="align-items:flex-start;">
+              <div class="item__main" style="width:100%;">
+
+                <div class="item__title">
+                  {{ item.teacher.vardas }} {{ item.teacher.pavarde }}
+                </div>
+
+                <div class="item__meta" style="margin-top:4px;">
+                  {% if item.teacher.dalykai.all %}
+                    dalykai:
+                    {% for d in item.teacher.dalykai.all %}
+                      {{ d.pavadinimas }}{% if not forloop.last %}, {% endif %}
+                    {% endfor %}
+                    ·
+                  {% endif %}
+
+                  {% if item.kabinetas %}
+                    kabinetas: {{ item.kabinetas.pavadinimas }}
+                  {% else %}
+                    kabinetas: —
+                  {% endif %}
+                </div>
+
+                <div class="times" style="margin-top:10px;">
+                  {% for s in item.slots %}
+                    {% if s.status == "free" %}
+
+                        <form method="post" action="{% url 'reserve_timeslot' item.teacher.id %}" class="times__form">
+                            {% csrf_token %}
+                            <input type="hidden" name="date" value="{{ date }}">
+                            <input type="hidden" name="times" value="{{ s.time }}">
+                            <input type="hidden" name="tipas" value="{{ tipas }}">
+                            <button class="btn btn--good btn--time" type="submit">✅Laisva ({{ s.time }})</button>
+                        </form>
+
+                    {% elif s.status == "mine" %}
+
+                      <a class="btn btn--bad btn--time" 
+                        href="{% url 'cancel_reservation' s.reservation_id %}?next={{ request.get_full_path }}"
+                        style="background-color:red;">
+                          {{ s.time }} ❌ ATŠAUKTI
+                      </a>
+
+                    {% else %}
+
+                        <span class="pill" title="{{ s.by }}">{{ s.time }} · {{ s.by }}</span>
+
+                    {% endif %}
+                  {% endfor %}
+                </div>
+
+              </div>
+            </div>
+          {% endfor %}
+
+        </div>
+      {% else %}
+        <div class="alert">
+          {% if tipas == "individualus" %}
+            {% if not active_child %}
+              Pasirinkite vaiką profilyje, kad matytumėte auklėtojos laikus.
+            {% else %}
+              Šiai datai auklėtojos laikų nėra arba auklėtojas nepaskirtas klasei.
+            {% endif %}
+          {% else %}
+            Nėra priskirtų mokytojų šiai datai.
+          {% endif %}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}
