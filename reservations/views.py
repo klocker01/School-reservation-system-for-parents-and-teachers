@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from django.db import IntegrityError
 from django.db.models import Q #su db padeda
 from django.contrib import messages
+from django.utils.http import url_has_allowed_host_and_scheme
 
 
 from .models import Teacher, Reservation, WorkingHours, Break, Profile, Child, Klase, Cabinet
@@ -62,9 +63,35 @@ def get_teacher_for_user(user):
         return None
 
 
+# tevas be ne vieno vaiko negali nieko rezervuoti, tai siunciam ji i profili.
+# Mokytoju sita netrukdo - jie naudojasi savo skydeliu.
+# Jei vaiku yra, bet ne vienas nepazymetas aktyviu - pazymim pirma, kad
+# vartotojas neatsidurtu tusciame puslapyje be jokio paaiskinimo
+def patikrinti_vaika(request):
+    vaikai = Child.objects.filter(user=request.user).order_by("last_name", "first_name")
+
+    if not vaikai.exists():
+        if get_teacher_for_user(request.user):
+            return None
+        # zinutes nerodome - profilio puslapyje ir taip stovi paaiskinimas,
+        # o dvi vienodos zinutes viena virs kitos atrodo prastai
+        return redirect("edit_profile")
+
+    profilis, _ = Profile.objects.get_or_create(user=request.user)
+    if not profilis.active_child:
+        profilis.active_child = vaikai.first()
+        profilis.save()
+
+    return None
+
+
 # pagrindinis – du pokalbiu tipai
 @login_required
 def home(request):
+    perkelti = patikrinti_vaika(request)
+    if perkelti:
+        return perkelti
+
     siandien = timezone.localdate()
     tipas = request.GET.get("tipas")
 
@@ -146,16 +173,33 @@ def laikai_is_eiles(data, laikai, intervalas=10):
     return True
 
 
+# vardas ir pavardes pirma raide su tasku - "Augustas J."
+# taip laiku juostoje uzima maziau vietos ir atrodo tvarkingiau
+def trumpas_vardas(vardas, pavarde):
+    vardas = (vardas or "").strip()
+    pavarde = (pavarde or "").strip()
+    if pavarde:
+        return f"{vardas} {pavarde[0]}."
+    return vardas
+
+
 # sudaro laiku sarasa is perduotu darbo laiku (WorkingHours) bloku
 # naudojama tiek tevu rezervacijos puslapyje (visi bloko tos dienos/tipo laikai),
 # tiek mokytojo savo grafiko kortelėje (vienas konkretus blokas)
 # request_user - jei perduotas, tos rezervacijos kurios priklauso siam vartotojui pažymimos "mine"
-def sudaryti_laikus(mokytojas, pasirinkta_data, darbo_laikai, request_user=None, show_names=True):
+def sudaryti_laikus(mokytojas, pasirinkta_data, darbo_laikai, request_user=None, show_names=True, tipas=None):
     siandien = timezone.localdate()
     dabar = timezone.localtime()
 
+    rez_qs = Reservation.objects.filter(teacher=mokytojas, date=pasirinkta_data)
+
+    # mokytojas savo skydelyje mato tik to paties tipo rezervacijas, kaip ir blokas,
+    # kitaip individualiu pokalbiu laikai issilietu i dalykininku bloka
+    if tipas:
+        rez_qs = rez_qs.filter(tipas=tipas)
+
     rezervacijos = {}
-    for rez in Reservation.objects.filter(teacher=mokytojas, date=pasirinkta_data).select_related("child", "cabinet"):
+    for rez in rez_qs.select_related("child", "cabinet"):
         rezervacijos[rez.time] = rez
 
     laikai = []
@@ -189,9 +233,21 @@ def sudaryti_laikus(mokytojas, pasirinkta_data, darbo_laikai, request_user=None,
 
             if rez:
                 if request_user and rez.user == request_user:
+                    # parodome kuriam vaikui sis laikas rezervuotas
+                    if rez.reserved_first_name:
+                        if rez.reserved_class:
+                            mano_vaikas = f"{trumpas_vardas(rez.reserved_first_name, rez.reserved_last_name)} ({rez.reserved_class})"
+                        else:
+                            mano_vaikas = trumpas_vardas(rez.reserved_first_name, rez.reserved_last_name)
+                    elif rez.child:
+                        mano_vaikas = trumpas_vardas(rez.child.first_name, rez.child.last_name)
+                    else:
+                        mano_vaikas = ""
+
                     laikai.append({
                         "time": laikas.strftime("%H:%M"),
                         "status": "mine",
+                        "by": mano_vaikas,
                         "reservation_id": rez.id
                     })
                 else:
@@ -200,19 +256,19 @@ def sudaryti_laikus(mokytojas, pasirinkta_data, darbo_laikai, request_user=None,
                         kas = "Užimta"
                     elif rez.reserved_first_name:
                         if rez.reserved_class:
-                            kas = f"{rez.reserved_first_name} {rez.reserved_last_name} ({rez.reserved_class})"
+                            kas = f"{trumpas_vardas(rez.reserved_first_name, rez.reserved_last_name)} ({rez.reserved_class})"
                         else:
-                            kas = f"{rez.reserved_first_name} {rez.reserved_last_name}"
+                            kas = trumpas_vardas(rez.reserved_first_name, rez.reserved_last_name)
                     elif rez.child:
                         klase_str = rez.child.klase.pavadinimas if rez.child.klase else "?"
-                        kas = f"{rez.child.first_name} {rez.child.last_name} ({klase_str})"
+                        kas = f"{trumpas_vardas(rez.child.first_name, rez.child.last_name)} ({klase_str})"
                     else:
                         kas = "Užimta"
 
                     # mokytojui parodome, jei sitam laikui priskirtas kitas kabinetas,
                     # nei jo numatytasis (kabinetas buvo nurodytas kuriant darbo laika)
                     if show_names and rez.cabinet_id and rez.cabinet_id != mokytojas.kabinetas_id:
-                        kas = f"{kas} · kabinetas: {rez.cabinet.pavadinimas}"
+                        kas = f"{kas}, kabinetas: {rez.cabinet.pavadinimas}"
 
                     laikai.append({
                         "time": laikas.strftime("%H:%M"),
@@ -242,6 +298,10 @@ def sudaryti_laikus(mokytojas, pasirinkta_data, darbo_laikai, request_user=None,
 # grafikas – filtruoja mokytojus pagal vaiko klase ir pokalbio tipa
 @login_required
 def teacher_schedule(request, date_str):
+    perkelti = patikrinti_vaika(request)
+    if perkelti:
+        return perkelti
+
     try:
         pasirinkta_data = datetime.strptime(date_str, "%Y-%m-%d").date()
     except ValueError:
@@ -297,9 +357,9 @@ def teacher_schedule(request, date_str):
 
     mokytojai = mokytojai.order_by("pavarde", "vardas")
 
-    # mokytojai mato kitu tevu/vaiku vardus uzimtuose laikuose, tevai - ne
+    # mokytojas vardus mato tik prie SAVO laiku - kitu mokytoju eilutese
+    # jam, kaip ir tevams, rodoma tik "Uzimta"
     ziurintis_mokytojas = get_teacher_for_user(request.user)
-    rodyti_vardus = ziurintis_mokytojas is not None
 
     duomenys = []
 
@@ -310,9 +370,14 @@ def teacher_schedule(request, date_str):
             .prefetch_related("breaks")
         )
 
+        rodyti_vardus = (
+            ziurintis_mokytojas is not None
+            and ziurintis_mokytojas.id == mokytojas.id
+        )
+
         tvarkingi = sudaryti_laikus(
             mokytojas, pasirinkta_data, darbo_laikai,
-            request_user=request.user, show_names=rodyti_vardus,
+            request_user=request.user, show_names=rodyti_vardus, tipas=tipas,
         )
 
         pirmas_blokas = darbo_laikai.first()
@@ -444,6 +509,7 @@ def reserve_timeslot(request, teacher_id):
             "times": [t.strftime("%H:%M") for t in laikai],
             "tipas": tipas,
             "kabinetas": kabinetas,
+            "vaikas": aktyvus_vaikas,
         })
 
     # kuriam
@@ -461,6 +527,7 @@ def reserve_timeslot(request, teacher_id):
                 reserved_last_name=aktyvus_vaikas.last_name,
                 reserved_class=klase_str,
                 cabinet=kabinetas,
+                tipas=tipas,
             )
         messages.success(request, "Rezervacija sėkmingai sukurta")
     except IntegrityError:
@@ -553,6 +620,13 @@ def set_active_child(request, child_id):
     profilis.active_child = vaikas
     profilis.save()
 
+    # jei vaikas keiciamas is virsutines juostos, grazinam i ta pati puslapi
+    kitas = request.GET.get("next")
+    if kitas and url_has_allowed_host_and_scheme(
+        kitas, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        return redirect(kitas)
+
     return redirect("edit_profile")
 
 
@@ -626,7 +700,7 @@ def teacher_dashboard(request):
     for wh in darbo_laikai:
         blokai.append({
             "wh": wh,
-            "slots": sudaryti_laikus(mokytojas, wh.date, [wh]),
+            "slots": sudaryti_laikus(mokytojas, wh.date, [wh], tipas=wh.tipas),
         })
 
     return render(request, "reservations/teacher_dashboard.html", {
@@ -809,4 +883,21 @@ def teacher_context(request):
         is_teacher = Teacher.objects.filter(email__iexact=request.user.email).exists()
     else:
         is_teacher = False
-    return {"is_teacher": is_teacher}
+    # virsutines juostos vaiku perjungikliui
+    vaikai = []
+    aktyvus = None
+    if request.user.is_authenticated:
+        vaikai = list(
+            Child.objects.filter(user=request.user)
+            .select_related("klase")
+            .order_by("last_name", "first_name")
+        )
+        profilis = Profile.objects.filter(user=request.user).select_related("active_child").first()
+        if profilis:
+            aktyvus = profilis.active_child
+
+    return {
+        "is_teacher": is_teacher,
+        "topbar_vaikai": vaikai,
+        "topbar_aktyvus": aktyvus,
+    }

@@ -20,16 +20,16 @@
                 {{ active_child.first_name }} {{ active_child.last_name }}
                 {% if active_child.klase %}({{ active_child.klase }}){% endif %}
               </strong>
-              · <a href="{% url 'edit_profile' %}">keisti</a>
+              (<a href="{% url 'edit_profile' %}">keisti</a>)
             </p>
           {% else %}
             <p class="card__sub">
-              Vaikas nepasirinktas · <a href="{% url 'edit_profile' %}">pasirinkti profilyje</a>
+              Vaikas nepasirinktas (<a href="{% url 'edit_profile' %}">pasirinkti profilyje</a>)
             </p>
           {% endif %}
         </div>
 
-        <a class="btn btn--ghost" href="{% url 'home' %}">⬅ atgal</a>
+        <a class="btn btn--ghost" href="{% url 'home' %}">‹ Atgal</a>
       </div>
     </div>
 
@@ -53,10 +53,7 @@
                 <div class="item__meta" style="margin-top:4px;">
                   {% if item.teacher.dalykai.all %}
                     dalykai:
-                    {% for d in item.teacher.dalykai.all %}
-                      {{ d.pavadinimas }}{% if not forloop.last %}, {% endif %}
-                    {% endfor %}
-                    ·
+                    {% for d in item.teacher.dalykai.all %}{{ d.pavadinimas }}{% if not forloop.last %}, {% endif %}{% endfor %},
                   {% endif %}
 
                   {% if item.kabinetas %}
@@ -75,20 +72,20 @@
                             <input type="hidden" name="date" value="{{ date }}">
                             <input type="hidden" name="times" value="{{ s.time }}">
                             <input type="hidden" name="tipas" value="{{ tipas }}">
-                            <button class="btn btn--good btn--time" type="submit">✅Laisva ({{ s.time }})</button>
+                            <button class="btn btn--good btn--time" type="submit">{{ s.time }} laisva</button>
                         </form>
 
                     {% elif s.status == "mine" %}
 
-                      <a class="btn btn--bad btn--time" 
+                      <a class="btn btn--bad btn--time"
                         href="{% url 'cancel_reservation' s.reservation_id %}?next={{ request.get_full_path }}"
-                        style="background-color:red;">
-                          {{ s.time }} ❌ ATŠAUKTI
+                        title="Atšaukti rezervaciją">
+                          <span>{{ s.time }}</span>{% if s.by %}<span>{{ s.by }}</span>{% endif %}<span class="slot__x">❌</span>
                       </a>
 
                     {% else %}
 
-                        <span class="pill" title="{{ s.by }}">{{ s.time }} · {{ s.by }}</span>
+                        <span class="pill" title="{{ s.by }}">{{ s.time }} {{ s.by }}</span>
 
                     {% endif %}
                   {% endfor %}

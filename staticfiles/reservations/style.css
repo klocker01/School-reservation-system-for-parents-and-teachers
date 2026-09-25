@@ -1,24 +1,24 @@
-@import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Nunito:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
 
 :root {
-  --bg:       #f0ebf7;
+  --bg:       #f6f4f7;
   --white:    #ffffff;
-  --text:     #1a0a2e;
-  --muted:    #7b6e8e;
-  --line:     #ddd3eb;
+  --text:     #2b2233;
+  --muted:    #7a7183;
+  --line:     #e6e1ea;
 
-  --purple-dark:  #3b1157;
-  --purple-mid:   #7c3aad;
-  --purple-light: #c084e8;
-  --accent:       #9333ea;
+  --purple-dark:  #472a52;
+  --purple-mid:   #6d3f78;
+  --purple-light: #c9a3d6;
+  --accent:       #9c4d9c;
   --gold:         #f0b429;
 
-  --good: #16a34a;
-  --bad:  #dc2626;
+  --good: #2e7d4f;
+  --bad:  #c0392b;
 
-  --shadow: 0 4px 20px rgba(60, 17, 87, 0.10);
-  --r:  14px;
-  --r2: 10px;
+  --shadow: 0 2px 10px rgba(60, 30, 80, 0.07);
+  --r:  12px;
+  --r2: 8px;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -28,7 +28,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: 'Nunito', system-ui, sans-serif;
+  font-family: 'Montserrat', system-ui, sans-serif;
   line-height: 1.5;
 }
 
@@ -41,14 +41,16 @@ a { color: inherit; text-decoration: none; }
 }
 
 
+/* virsutine juosta - tamsiai violetine kaip mokyklos puslapyje */
 .topbar {
   position: sticky;
   top: 0;
   z-index: 50;
   background: var(--purple-dark);
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  box-shadow: 0 2px 12px rgba(30,0,60,0.18);
+  box-shadow: 0 2px 10px rgba(30, 10, 45, 0.25);
 }
+
+.topbar .wrap { width: 100%; }
 
 .topbar__inner {
   display: flex;
@@ -61,30 +63,33 @@ a { color: inherit; text-decoration: none; }
 .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
 }
 
 .brand__logo {
-  height: 48px;
-  width: auto;
+  height: 44px;
   flex-shrink: 0;
-  overflow: visible;
-  background: transparent;
 }
 
 .brand__logo img {
   height: 100%;
   width: auto;
   object-fit: contain;
-  mix-blend-mode: screen;  
+  mix-blend-mode: screen;
 }
 
+.brand__text { min-width: 0; }
+
 .brand__title {
-  font-family: 'Segoe UI';
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: #ffffff;
-  letter-spacing: 0.5px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 
@@ -92,15 +97,16 @@ a { color: inherit; text-decoration: none; }
   display: flex;
   align-items: center;
   gap: 4px;
-  flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
 .nav__link {
-  padding: 8px 12px;
-  border-radius: 8px;
-  color: rgba(255,255,255,0.72);
-  font-weight: 600;
-  font-size: 0.9rem;
+  white-space: nowrap;
+  padding: 9px 13px;
+  border-radius: var(--r2);
+  color: rgba(255,255,255,0.75);
+  font-weight: 500;
+  font-size: 0.87rem;
   transition: background 0.15s, color 0.15s;
 }
 
@@ -112,16 +118,48 @@ a { color: inherit; text-decoration: none; }
 .nav__link--active {
   background: var(--accent);
   color: #fff;
+  font-weight: 600;
 }
 
 .nav__link--teacher {
   color: var(--gold);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .nav__link--teacher:hover {
   background: rgba(240,180,41,0.15);
   color: var(--gold);
+}
+
+.nav .btn--ghost {
+  border-color: rgba(255,255,255,0.35);
+  color: rgba(255,255,255,0.85);
+}
+
+.nav .btn--ghost:hover {
+  background: rgba(255,255,255,0.1);
+  border-color: #fff;
+  color: #fff;
+}
+
+
+/* mygtukas meniu atidaryti telefone */
+.nav-toggle {
+  display: none;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+}
+
+.nav-toggle span {
+  display: block;
+  width: 22px;
+  height: 2px;
+  background: #fff;
+  margin: 5px 0;
+  border-radius: 2px;
 }
 
 
@@ -133,27 +171,27 @@ a { color: inherit; text-decoration: none; }
 }
 
 .card__hd {
-  padding: 18px 20px 0;
+  padding: 18px 20px 14px;
   border-bottom: 1px solid var(--line);
-  padding-bottom: 14px;
 }
 
 .card__bd { padding: 20px; }
 
 .card__title {
   margin: 0;
-  font-size: 1.15rem;
-  font-weight: 800;
+  font-size: 1.1rem;
+  font-weight: 700;
   color: var(--text);
 }
 
 .card__sub {
   margin: 5px 0 0;
   color: var(--muted);
-  font-size: 0.86rem;
+  font-size: 0.85rem;
 }
 
 .stack { display: grid; gap: 16px; }
+.stack > * { min-width: 0; }
 
 
 .btn {
@@ -166,14 +204,14 @@ a { color: inherit; text-decoration: none; }
   border: none;
   background: var(--accent);
   color: #fff;
-  font-family: 'Nunito', sans-serif;
-  font-weight: 700;
-  font-size: 0.92rem;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600;
+  font-size: 0.88rem;
   cursor: pointer;
   transition: filter 0.15s, background 0.15s;
 }
 
-.btn:hover { filter: brightness(1.1); }
+.btn:hover { filter: brightness(1.08); }
 .btn:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .btn--ghost {
@@ -182,7 +220,7 @@ a { color: inherit; text-decoration: none; }
   color: var(--accent);
 }
 .btn--ghost:hover {
-  background: #f3e8ff;
+  background: #f6ecf6;
   border-color: var(--accent);
   filter: none;
 }
@@ -191,7 +229,7 @@ a { color: inherit; text-decoration: none; }
   background: var(--gold);
   color: var(--purple-dark);
 }
-.btn--gold:hover { filter: brightness(1.08); }
+.btn--gold:hover { filter: brightness(1.05); }
 
 .btn--good { background: var(--good); color: #fff; }
 .btn--bad  { background: var(--bad);  color: #fff; }
@@ -200,10 +238,10 @@ a { color: inherit; text-decoration: none; }
   background: #fff;
   color: var(--good);
   border: 2px solid var(--good);
-  font-weight: 700;
+  font-weight: 600;
 }
 .btn--mine:hover {
-  background: #fee2e2;
+  background: #fdecea;
   color: var(--bad);
   border-color: var(--bad);
 }
@@ -216,7 +254,7 @@ a { color: inherit; text-decoration: none; }
   justify-content: space-between;
   gap: 12px;
   padding: 14px 18px;
-  border: 1.5px solid var(--line);
+  border: 1px solid var(--line);
   border-radius: var(--r);
   background: var(--white);
   transition: border-color 0.15s, box-shadow 0.15s;
@@ -224,18 +262,37 @@ a { color: inherit; text-decoration: none; }
 
 .item:hover {
   border-color: var(--purple-light);
-  box-shadow: 0 2px 10px rgba(147,51,234,0.08);
+  box-shadow: 0 2px 8px rgba(110, 60, 120, 0.08);
 }
 
-.item__title { font-weight: 800; color: var(--text); }
+.item__title { font-weight: 700; color: var(--text); }
 .item__meta  { font-size: 0.82rem; color: var(--muted); margin-top: 2px; }
 
 
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  background: #f1ebf3;
+  color: var(--purple-mid);
+  border: 1px solid var(--line);
+}
+
+.badge--free {
+  background: #e7f4ec;
+  color: var(--good);
+  border-color: #bfe3cc;
+}
+
+
 .table-wrap {
-  overflow: auto;
+  overflow-x: auto;
+  max-width: 100%;
   border-radius: var(--r);
   border: 1px solid var(--line);
-  box-shadow: var(--shadow);
 }
 
 table {
@@ -248,21 +305,21 @@ th, td {
   padding: 12px 16px;
   border-bottom: 1px solid var(--line);
   vertical-align: middle;
+  font-size: 0.9rem;
 }
 
 th {
-  background: #f5eeff;
-  font-size: 0.78rem;
-  font-weight: 800;
+  background: #f6f1f8;
+  font-size: 0.74rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   color: var(--muted);
   text-align: left;
 }
 
-tbody tr:hover td { background: #faf5ff; }
-
-.cell-strong { font-weight: 800; }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: #faf7fb; }
 
 
 .times {
@@ -274,31 +331,37 @@ tbody tr:hover td { background: #faf5ff; }
 .times__form { margin: 0; }
 
 .btn--time {
+  flex-wrap: wrap;
   padding: 7px 14px;
   border-radius: 999px;
-  font-size: 0.85rem;
-  background: var(--accent);
-  color: #fff;
-  border: none;
+  font-size: 0.82rem;
 }
 
-.btn--time:hover { filter: brightness(1.1); }
+/* emoji sriftas tik ten kur yra emoji - visam mygtukui deti negalima,
+   nes emoji sriftuose yra ir skaitmenys, tai neuzsikrovus Montserrat
+   laikai virstu spalvotais zenklais */
+.slot__x {
+  font-family: 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif;
+  flex-shrink: 0;
+  font-size: 0.85em;
+  line-height: 1;
+}
 
 .pill {
   display: inline-flex;
   align-items: center;
   padding: 6px 14px;
   border-radius: 999px;
-  font-size: 0.8rem;
-  font-weight: 700;
-  border: 1.5px solid #fca5a5;
-  background: #fee2e2;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border: 1px solid #e8b8b2;
+  background: #faeae8;
   color: var(--bad);
 }
 
 .pill--free {
-  border-color: #86efac;
-  background: #dcfce7;
+  border-color: #bfe3cc;
+  background: #e7f4ec;
   color: var(--good);
 }
 
@@ -308,9 +371,9 @@ input, select {
   padding: 10px 14px;
   border-radius: var(--r2);
   border: 1.5px solid var(--line);
-  background: #faf8fd;
-  font-family: 'Nunito', sans-serif;
-  font-size: 0.92rem;
+  background: #fbfafc;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 0.9rem;
   color: var(--text);
   transition: border-color 0.15s;
 }
@@ -324,8 +387,8 @@ input:focus, select:focus {
 label {
   display: block;
   margin-bottom: 6px;
-  font-size: 0.83rem;
-  font-weight: 700;
+  font-size: 0.8rem;
+  font-weight: 600;
   color: var(--muted);
 }
 
@@ -334,21 +397,23 @@ label {
   padding: 13px 16px;
   border-radius: var(--r2);
   margin-bottom: 16px;
-  font-weight: 600;
-  font-size: 0.9rem;
-  animation: fadein .3s ease;
+  font-weight: 500;
+  font-size: 0.88rem;
+  background: #f1ebf3;
+  color: var(--purple-mid);
+  border: 1px solid var(--line);
 }
 
 .alert.success {
-  background: #d1fae5;
-  color: #065f46;
-  border: 1px solid #6ee7b7;
+  background: #e7f4ec;
+  color: #1e5c39;
+  border: 1px solid #bfe3cc;
 }
 
 .alert.error {
-  background: #fee2e2;
-  color: #991b1b;
-  border: 1px solid #fca5a5;
+  background: #faeae8;
+  color: #922b21;
+  border: 1px solid #e8b8b2;
 }
 
 
@@ -357,14 +422,6 @@ label {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 20px;
-}
-
-.page-head h1 {
-  font-size: 1.4rem;
-  font-weight: 800;
-  color: var(--text);
-  margin: 0;
 }
 
 @media (max-width: 520px) {
@@ -372,141 +429,333 @@ label {
   .page-head .btn { width: 100%; }
 }
 
-@keyframes fadein {
-  from { opacity: 0; transform: translateY(-4px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
 
-
-.home-hero {
-  text-align: center;
-  padding: 10px 0 4px;
-}
-
-.home-hero__sub {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.95rem;
-  font-weight: 600;
-}
-
-
-.tipas-card {
+/* pradzios puslapio kortelės */
+.landing {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 18px;
-  padding: 22px 20px;
-  border-radius: var(--r);
-  border: 2px solid var(--line);
-  background: var(--white);
-  box-shadow: var(--shadow);
-  text-decoration: none;
-  transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s;
-  cursor: pointer;
+  justify-content: center;
+  min-height: 55vh;
+  gap: 24px;
+  padding: 24px 0;
 }
 
-.tipas-card:active {
-  transform: scale(0.98);
-}
-
-.tipas-card--ind:hover {
-  border-color: var(--accent);
-  box-shadow: 0 4px 20px rgba(147,51,234,0.14);
-}
-
-.tipas-card--dal:hover {
-  border-color: var(--purple-mid);
-  box-shadow: 0 4px 20px rgba(124,58,173,0.14);
-}
-
-.tipas-card__icon {
-  font-size: 2.6rem;
-  line-height: 1;
-  flex-shrink: 0;
-}
-
-.tipas-card__body {
-  flex: 1;
-}
-
-.tipas-card__title {
-  font-weight: 800;
-  font-size: 1.1rem;
+.landing__hint {
+  font-size: 1rem;
   color: var(--text);
-  margin-bottom: 4px;
+  font-weight: 600;
+  margin: 0;
+  text-align: center;
 }
 
-.tipas-card__desc {
-  font-size: 0.84rem;
+.landing__cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  width: 100%;
+  max-width: 620px;
+}
+
+.lcard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 26px 22px;
+  border-radius: var(--r);
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-top: 4px solid var(--accent);
+  box-shadow: var(--shadow);
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.12s;
+}
+
+.lcard:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+  box-shadow: 0 6px 18px rgba(110, 60, 120, 0.14);
+}
+
+.lcard--dal { border-top-color: var(--purple-dark); }
+
+.lcard--dal:hover { border-color: var(--purple-dark); }
+
+.lcard__title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.lcard__sub {
+  font-size: 0.82rem;
   color: var(--muted);
-  font-weight: 500;
-  line-height: 1.4;
+  line-height: 1.45;
 }
 
-.tipas-card__arrow {
-  font-size: 1.8rem;
+.lcard__go {
+  margin-top: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.lcard--dal .lcard__go { color: var(--purple-mid); }
+
+
+/* telefonams */
+@media (max-width: 900px) {
+  .nav-toggle { display: block; }
+
+  .nav {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(280px, 80vw);
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    padding: 70px 16px 16px;
+    background: var(--purple-dark);
+    box-shadow: -4px 0 20px rgba(20, 5, 35, 0.4);
+    transform: translateX(100%);
+    transition: transform 0.2s ease;
+    z-index: 60;
+  }
+
+  .nav.open { transform: translateX(0); }
+
+  .nav__link {
+    padding: 12px 14px;
+    font-size: 0.95rem;
+  }
+
+  .nav .btn--ghost { margin-top: 8px; }
+
+  .nav-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 5, 35, 0.45);
+    z-index: 55;
+  }
+
+  .nav-backdrop.open { display: block; }
+
+  .nav-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 1.6rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 6px;
+  }
+
+  .brand__title {
+    font-size: 0.82rem;
+    line-height: 1.25;
+    white-space: normal;
+    overflow: visible;
+  }
+  .brand__logo { height: 36px; }
+
+  .card__hd { padding: 14px 14px 12px; }
+  .card__bd { padding: 14px; }
+  .item { padding: 12px 14px; }
+
+  .btn--time {
+    padding: 10px 16px;
+    font-size: 0.88rem;
+  }
+
+  .times { gap: 10px; }
+
+  table { min-width: 560px; }
+
+  .landing__cards { grid-template-columns: 1fr; }
+}
+
+@media (min-width: 901px) {
+  .nav-close, .nav-backdrop { display: none; }
+}
+
+/* paspaudziamos saraso eilutes (pvz. datu sarasas) */
+.item--link { cursor: pointer; }
+
+.item--link:hover {
+  border-color: var(--accent);
+  background: #faf7fb;
+}
+
+.item__arrow {
+  font-size: 1.4rem;
   color: var(--line);
   font-weight: 700;
   flex-shrink: 0;
   transition: color 0.15s;
 }
 
-.tipas-card:hover .tipas-card__arrow {
-  color: var(--accent);
+.item--link:hover .item__arrow { color: var(--accent); }
+
+/* siauruose ekranuose lentele nesitraukia, tai kiekviena eilute
+   verciam i atskira kortele su antrastemis is data-antraste */
+@media (max-width: 760px) {
+  .table-wrap {
+    overflow: visible;
+    border: none;
+    border-radius: 0;
+  }
+
+  table { min-width: 0; }
+
+  thead { display: none; }
+
+  tbody tr {
+    display: block;
+    margin-bottom: 12px;
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    background: var(--white);
+  }
+
+  tbody tr:last-child { margin-bottom: 0; }
+
+  tbody td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 11px 14px;
+    text-align: right;
+  }
+
+  tbody td::before {
+    content: attr(data-antraste);
+    flex-shrink: 0;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    text-align: left;
+  }
+
+  tbody tr td:last-child { border-bottom: none; }
+
+  tbody tr:hover td { background: transparent; }
 }
 
+/* vaiku perjungiklis virsutineje juostoje */
+.topbar__inner { flex-wrap: wrap; }
 
-.item--link {
-  text-decoration: none;
+.vaikas {
+  position: relative;
+  flex-shrink: 0;
+  margin-left: auto;
+  margin-right: 12px;
+}
+
+.vaikas__btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: var(--r2);
+  border: 1px solid rgba(255,255,255,0.28);
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 0.82rem;
   cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
 }
 
-.item--link:hover {
-  border-color: var(--accent);
-  background: #faf5ff;
+.vaikas__btn:hover {
+  background: rgba(255,255,255,0.16);
+  border-color: rgba(255,255,255,0.5);
 }
 
-.item__arrow {
-  font-size: 1.5rem;
-  color: var(--line);
-  font-weight: 700;
+.vaikas__label {
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: rgba(255,255,255,0.6);
   flex-shrink: 0;
 }
 
-.item--link:hover .item__arrow {
-  color: var(--accent);
+.vaikas__name {
+  font-weight: 600;
+  white-space: nowrap;
 }
 
+.vaikas__arrow {
+  font-size: 0.7rem;
+  color: rgba(255,255,255,0.7);
+  flex-shrink: 0;
+}
 
-@media (max-width: 600px) {
-  .brand__title { font-size: 1.1rem; }
+.vaikas__menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 230px;
+  padding: 6px;
+  border-radius: var(--r);
+  background: var(--white);
+  border: 1px solid var(--line);
+  box-shadow: 0 8px 24px rgba(40, 15, 55, 0.22);
+  z-index: 70;
+}
 
-  .nav { gap: 2px; }
+.vaikas.open .vaikas__menu { display: block; }
 
-  .nav__link {
-    padding: 6px 8px;
-    font-size: 0.82rem;
+.vaikas__item {
+  display: block;
+  padding: 10px 12px;
+  border-radius: var(--r2);
+  font-size: 0.86rem;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.vaikas__item:hover { background: #f6f1f8; }
+
+.vaikas__item--active {
+  background: #f1ebf3;
+  font-weight: 700;
+  color: var(--purple-mid);
+}
+
+.vaikas__item--add {
+  margin-top: 4px;
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 var(--r2) var(--r2);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .vaikas {
+    order: 3;
+    width: 100%;
+    margin: 0 0 10px;
   }
 
-  .btn {
-    padding: 10px 14px;
-    font-size: 0.88rem;
+  .vaikas__btn {
+    width: 100%;
+    justify-content: flex-start;
   }
 
-  .card__hd { padding: 14px 14px 12px; }
-  .card__bd { padding: 14px; }
+  .vaikas__arrow { margin-left: auto; }
 
-  .item { padding: 12px 14px; }
-
-  .tipas-card { padding: 18px 16px; gap: 14px; }
-  .tipas-card__icon { font-size: 2rem; }
-  .tipas-card__title { font-size: 1rem; }
-
- 
-  .btn--time {
-    padding: 10px 16px;
-    font-size: 0.9rem;
+  .vaikas__menu {
+    left: 0;
+    right: 0;
+    min-width: 0;
   }
-
-  .times { gap: 10px; }
 }

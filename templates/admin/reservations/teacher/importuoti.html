@@ -1,0 +1,46 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div>
+  <p>
+    Įkelkite Excel (.xlsx) arba CSV failą su mokytojų sąrašu. Failą galima kelti
+    kelis kartus, nauji mokytojai bus pridėti, o jau esantiems bus atnaujintas
+    vardas ir pavardė. Dubliuotų įrašų neatsiras.
+  </p>
+
+  <p>
+    Reikalingi trys stulpeliai: <strong>vardas</strong>, <strong>pavardė</strong> ir
+    <strong>el. paštas</strong>
+  </p>
+
+  <table style="margin: 12px 0 20px; border-collapse: collapse;">
+    <tr>
+      <th style="border:1px solid #ccc; padding:6px 12px;">Vardas</th>
+      <th style="border:1px solid #ccc; padding:6px 12px;">Pavardė</th>
+      <th style="border:1px solid #ccc; padding:6px 12px;">El. paštas</th>
+    </tr>
+    <tr>
+      <td style="border:1px solid #ccc; padding:6px 12px;">Jonas</td>
+      <td style="border:1px solid #ccc; padding:6px 12px;">Jonaitis</td>
+      <td style="border:1px solid #ccc; padding:6px 12px;">jonas.jonaitis@herojus.lt</td>
+    </tr>
+    <tr>
+      <td style="border:1px solid #ccc; padding:6px 12px;">Petras</td>
+      <td style="border:1px solid #ccc; padding:6px 12px;">Petrauskas</td>
+      <td style="border:1px solid #ccc; padding:6px 12px;">petras.petrauskas@herojus.lt</td>
+    </tr>
+  </table>
+
+  <p style="color:#666;">
+    Dalykai, klasės ir kabinetai per failą nekeliami, juos reikės priskirti
+    rankomis mokytojo kortelėje.
+  </p>
+
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ forma.as_p }}
+    <input type="submit" value="Įkelti" class="default">
+    <a href="{% url 'admin:reservations_teacher_changelist' %}" style="margin-left:12px;">Atgal</a>
+  </form>
+</div>
+{% endblock %}

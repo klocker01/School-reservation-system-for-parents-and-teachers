@@ -21,3 +21,5 @@ sqlparse==0.5.5
 tzdata==2025.3
 urllib3==2.6.3
 whitenoise==6.5.0
+gunicorn==23.0.0
+openpyxl==3.1.5

@@ -1,9 +1,13 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 from django import forms
 from django.core.exceptions import ValidationError
+from django.shortcuts import render, redirect
+from django.urls import path
 from datetime import datetime, timedelta
 
-from .models import Subject, Cabinet, Klase, Teacher, WorkingHours, Break, Reservation, Profile, Child
+from .importas import importuoti_mokytojus
+
+from .models import Subject, Cabinet, Klase, Teacher, WorkingHours, Break, Reservation, Profile, Child, LeistinasEmail
 
 
 @admin.register(Subject)
@@ -26,13 +30,72 @@ class KlaseAdmin(admin.ModelAdmin):
     fields = ("pavadinimas", "aukletojas")
 
 
+# forma mokytoju sarasui ikelti
+class MokytojuImportoForma(forms.Form):
+    failas = forms.FileField(
+        label="Failas",
+    )
+
+
 @admin.register(Teacher)
 class TeacherAdmin(admin.ModelAdmin):
+    change_list_template = "admin/reservations/teacher/change_list.html"
     list_display = ("vardas", "pavarde", "dalykai_text", "klases_text", "kabinetas", "email")
     search_fields = ("vardas", "pavarde", "email")
     list_filter = ("kabinetas", "klases")
     fields = ("vardas", "pavarde", "kabinetas", "dalykai", "klases", "email")
     filter_horizontal = ("dalykai", "klases")
+
+    # savas adresas mokytoju sarasui ikelti
+    def get_urls(self):
+        urls = super().get_urls()
+        savi = [
+            path(
+                "importuoti/",
+                self.admin_site.admin_view(self.importo_puslapis),
+                name="reservations_teacher_importuoti",
+            ),
+        ]
+        return savi + urls
+
+    def importo_puslapis(self, request):
+        if request.method == "POST":
+            forma = MokytojuImportoForma(request.POST, request.FILES)
+            if forma.is_valid():
+                failas = request.FILES["failas"]
+                ataskaita = importuoti_mokytojus(failas, failas.name)
+
+                if ataskaita["sukurta"] or ataskaita["atnaujinta"]:
+                    messages.success(
+                        request,
+                        f"Sukurta nauju: {ataskaita['sukurta']}, "
+                        f"atnaujinta: {ataskaita['atnaujinta']}, "
+                        f"praleista: {ataskaita['praleista']}"
+                    )
+                else:
+                    messages.warning(
+                        request,
+                        f"Naujų mokytojų nepridėta. Praleista eilučių: {ataskaita['praleista']}"
+                    )
+
+                # klaidas rodome po viena, kad butu aisku kurioje eiluteje kas negerai
+                for klaida in ataskaita["klaidos"][:15]:
+                    messages.error(request, klaida)
+                if len(ataskaita["klaidos"]) > 15:
+                    messages.error(
+                        request,
+                        f"...ir dar {len(ataskaita['klaidos']) - 15} klaidos"
+                    )
+
+                return redirect("admin:reservations_teacher_changelist")
+        else:
+            forma = MokytojuImportoForma()
+
+        return render(request, "admin/reservations/teacher/importuoti.html", {
+            "forma": forma,
+            "opts": self.model._meta,
+            "title": "Įkelti mokytojų sąrašą",
+        })
 
     # sudeti visus mokytojo dalykus i viena teksta
     def dalykai_text(self, obj):
@@ -173,3 +236,12 @@ class ReservationAdmin(admin.ModelAdmin):
         "teacher__pavarde",
     )
     ordering = ("-date", "-time")
+
+
+# adminas cia deda tevu adresus, kuriems leidziama prisijungti
+@admin.register(LeistinasEmail)
+class LeistinasEmailAdmin(admin.ModelAdmin):
+    list_display = ("email", "pastaba", "pridetas")
+    search_fields = ("email", "pastaba")
+    ordering = ("email",)
+    

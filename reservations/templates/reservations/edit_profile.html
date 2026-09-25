@@ -20,7 +20,7 @@
             <div class="item" style="flex-wrap:wrap; gap:10px;">
               <div class="item__main" style="min-width:200px;">
                 <div class="item__title">
-                  {{ c.first_name }} {{ c.last_name }}{% if c.klase %} · {{ c.klase.pavadinimas }}{% endif %}
+                  {{ c.first_name }} {{ c.last_name }}{% if c.klase %} ({{ c.klase.pavadinimas }}){% endif %}
                 </div>
 
                 <div class="item__meta">
@@ -55,7 +55,8 @@
         </div>
       {% else %}
         <div class="alert">
-          Dar nepridėjai nei vieno vaiko.
+          Dar nepridėjote nė vieno vaiko. Kol vaiko nėra, laikų rezervuoti negalėsite –
+          užpildykite formą žemiau.
         </div>
       {% endif %}
     </div>

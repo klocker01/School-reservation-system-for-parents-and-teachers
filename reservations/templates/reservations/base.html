@@ -19,8 +19,41 @@
         </div>
       </a>
 
-      <nav class="nav">
-        {% if user.is_authenticated %}
+      {% if user.is_authenticated and topbar_vaikai %}
+        <div class="vaikas" id="vaikasBox">
+          <button class="vaikas__btn" id="vaikasToggle" type="button">
+            <span class="vaikas__label">Vaikas</span>
+            <span class="vaikas__name">
+              {% if topbar_aktyvus %}
+                {{ topbar_aktyvus.first_name }} {{ topbar_aktyvus.last_name }}
+              {% else %}
+                nepasirinktas
+              {% endif %}
+            </span>
+            <span class="vaikas__arrow">&#9662;</span>
+          </button>
+
+          <div class="vaikas__menu" id="vaikasMenu">
+            {% for v in topbar_vaikai %}
+              <a class="vaikas__item{% if topbar_aktyvus.id == v.id %} vaikas__item--active{% endif %}"
+                 href="{% url 'set_active_child' v.id %}?next={{ request.get_full_path|urlencode }}">
+                {{ v.first_name }} {{ v.last_name }}{% if v.klase %} ({{ v.klase.pavadinimas }}){% endif %}
+              </a>
+            {% endfor %}
+            <a class="vaikas__item vaikas__item--add" href="{% url 'edit_profile' %}">Nustatymai</a>
+          </div>
+        </div>
+      {% endif %}
+
+      {% if user.is_authenticated %}
+        <button class="nav-toggle" id="navToggle" aria-label="Atidaryti meniu">
+          <span></span><span></span><span></span>
+        </button>
+
+        <div class="nav-backdrop" id="navBackdrop"></div>
+
+        <nav class="nav" id="navMenu">
+          <button class="nav-close" id="navClose" aria-label="Uždaryti meniu">&times;</button>
           <a class="nav__link" href="{% url 'home' %}?tipas=individualus">Individualūs</a>
           <a class="nav__link" href="{% url 'home' %}?tipas=dalykininku">Dalykininkų</a>
           <a class="nav__link" href="{% url 'my_reservations' %}">Mano laikai</a>
@@ -29,24 +62,58 @@
             <a class="nav__link nav__link--teacher" href="{% url 'teacher_dashboard' %}">Mokytojo grafikas</a>
           {% endif %}
           <a class="btn btn--ghost" href="{% url 'account_logout' %}">Atsijungti</a>
-        {% endif %}
-      </nav>
+        </nav>
+      {% endif %}
     </div>
   </header>
 
   <main class="wrap">
     {% if messages %}
-    {% for message in messages %}
+      {% for message in messages %}
         <div class="alert {{ message.tags }}">
-            {{ message }}
+          {{ message }}
         </div>
-    {% endfor %}
-{% endif %}
+      {% endfor %}
+    {% endif %}
 
     {% block content %}{% endblock %}
-</main>
+  </main>
 
+  <script>
+    // mobilus meniu
+    var toggle = document.getElementById("navToggle");
+    var menu = document.getElementById("navMenu");
+    var backdrop = document.getElementById("navBackdrop");
+    var close = document.getElementById("navClose");
 
-  
+    function uzdaryti() {
+      menu.classList.remove("open");
+      backdrop.classList.remove("open");
+    }
+
+    // vaiku perjungiklis virsutineje juostoje
+    var vaikasBox = document.getElementById("vaikasBox");
+    var vaikasToggle = document.getElementById("vaikasToggle");
+
+    if (vaikasToggle) {
+      vaikasToggle.addEventListener("click", function (e) {
+        e.stopPropagation();
+        vaikasBox.classList.toggle("open");
+      });
+
+      document.addEventListener("click", function () {
+        vaikasBox.classList.remove("open");
+      });
+    }
+
+    if (toggle) {
+      toggle.addEventListener("click", function () {
+        menu.classList.add("open");
+        backdrop.classList.add("open");
+      });
+      close.addEventListener("click", uzdaryti);
+      backdrop.addEventListener("click", uzdaryti);
+    }
+  </script>
 </body>
 </html>

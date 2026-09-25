@@ -2,13 +2,16 @@ from pathlib import Path #Keliai
 import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent #Kad leistu django rasti failus 
-try:
-    with open(r"C:\Users\Kajpi\Desktop\mokykla\secure_key.txt","r") as f:
-        key = f.read().strip()
-except FileNotFoundError:
-    key = "django_ran_pass"
-SECRET_KEY = key
-DEBUG = True
+
+KEY_FAILAS = BASE_DIR / "secure_key.txt"
+if KEY_FAILAS.exists():
+    SECRET_KEY = KEY_FAILAS.read_text().strip()
+else:
+    SECRET_KEY = "tik-vietiniam-darbui-netinka-serveriui"
+
+
+DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
+
 ALLOWED_HOSTS = ["registracija.herojus.lt",'localhost', '127.0.0.1']
 
 INSTALLED_APPS = [
@@ -50,6 +53,8 @@ ACCOUNT_LOGOUT_ON_GET = True
 SOCIALACCOUNT_ONLY = True
 ACCOUNT_PASSWORD_LOGIN = False #Patraukti ta nesamonia nereikalinga
 
+
+SOCIALACCOUNT_ADAPTER = "reservations.adapters.BaltojoSarasoAdapter"
 
 SOCIALACCOUNT_PROVIDERS = {
     "google": {
@@ -93,9 +98,17 @@ TEMPLATES = [
 WSGI_APPLICATION = 'core.wsgi.application'
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
+        "OPTIONS": {
+            # skaitytojai nebelaukia kol baigsis rasymas
+            "init_command": "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;",
+            # jei baze uzimta, laukiam 20s vietoj 5
+            "timeout": 20,
+            # transakcija uzima rasymo teise is karto, ne viduryje darbo
+            "transaction_mode": "IMMEDIATE",
+        },
     }
 }
 
@@ -117,3 +130,27 @@ STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'reservations/static'),
 ]
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# --- HTTPS ---
+# Įjungiama tik tada, kai serveryje jau veikia sertifikatas.
+# Kol dirbi lokaliai, DJANGO_HTTPS aplinkos kintamojo nėra ir viskas lieka išjungta.
+HTTPS_ITAISYTA = os.environ.get("DJANGO_HTTPS") == "1"
+
+if HTTPS_ITAISYTA:
+    # nginx praneša Django, kad užklausa atėjo per https
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+    # visi http užklausimai peradresuojami į https
+    SECURE_SSL_REDIRECT = True
+
+    # slapukai keliauja tik šifruotu kanalu
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+
+    # be šito Django atmes POST formas su 403
+    CSRF_TRUSTED_ORIGINS = ["https://registracija.herojus.lt"]
+
+    # naršyklė pati eis per https kitą kartą (pradžioje trumpai, vėliau galima pailginti)
+    SECURE_HSTS_SECONDS = 3600
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+    SECURE_HSTS_PRELOAD = False

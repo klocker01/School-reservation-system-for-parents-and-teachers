@@ -14,10 +14,16 @@
         <div class="stack">
           <div class="item">
             <div class="item__main">
-              <div class="item__title">{{ r.date }} · {{ r.time|time:"H:i" }}</div>
+              <div class="item__title">{{ r.date }}, {{ r.time|time:"H:i" }}</div>
               <div class="item__meta">
+                {% if r.reserved_first_name %}
+                  {{ r.reserved_first_name }} {{ r.reserved_last_name }}
+                  {% if r.reserved_class %}({{ r.reserved_class }}){% endif %},
+                {% elif r.child %}
+                  {{ r.child.first_name }} {{ r.child.last_name }},
+                {% endif %}
                 {{ r.teacher.vardas }} {{ r.teacher.pavarde }}
-                {% if r.teacher.kabinetas %} · {{ r.teacher.kabinetas.pavadinimas }}{% endif %}
+                {% if r.teacher.kabinetas %}, kabinetas {{ r.teacher.kabinetas.pavadinimas }}{% endif %}
               </div>
             </div>
             <span class="badge">Rezervacija</span>

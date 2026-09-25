@@ -181,6 +181,16 @@ class Reservation(models.Model):
     reserved_last_name = models.CharField(max_length=50, blank=True)
     reserved_class = models.CharField(max_length=20, blank=True)
 
+    # pokalbio tipas - fiksuojamas rezervavimo metu is darbo laiko bloko.
+    # Reikalingas tam, kad mokytojo skydelyje individualiu ir dalykininku
+    # pokalbiu rezervacijos nesimaisytu tarpusavyje
+    tipas = models.CharField(
+        max_length=20,
+        choices=WorkingHours.TIPAS_CHOICES,
+        default="individualus",
+        verbose_name="Pokalbio tipas",
+    )
+
     # kabinetas kuriame vyks pokalbis - paimamas is darbo laiko bloko (jei nustatytas)
     # arba is mokytojo profilio, ir issaugomas cia kaip fiksuotas irasas
     cabinet = models.ForeignKey(
@@ -210,3 +220,35 @@ class Reservation(models.Model):
             kas = "ADMIN"
 
         return f"{kas} -> {self.teacher} | {self.date} {self.time}"
+
+
+class LeistinasEmail(models.Model):
+    """Baltasis sarasas - tik sie adresai gali prisijungti prie sistemos.
+    Mokytoju adresai tikrinami atskirai, ju cia dubliuoti nereikia."""
+
+    email = models.EmailField(
+        unique=True,
+        verbose_name="El. paštas",
+        help_text="Gmail adresas, kuriuo tėvas galės prisijungti",
+    )
+    pastaba = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        verbose_name="Pastaba",
+        help_text="Pvz. vaiko vardas ar klasė, kad būtų aišku kieno tai adresas",
+    )
+    pridetas = models.DateTimeField(auto_now_add=True, verbose_name="Pridėtas")
+
+    class Meta:
+        ordering = ("email",)
+        verbose_name = "Parent email"
+        verbose_name_plural = "Parents emails"
+
+    # visada saugom mazosiomis, kad palyginimas neapviltu
+    def save(self, *args, **kwargs):
+        self.email = (self.email or "").strip().lower()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.email

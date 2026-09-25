@@ -6,3 +6,6 @@ services:
       - "8000:8000"
     volumes:
       - .:/app
+    environment:
+      - DJANGO_HTTPS=1
+      - DJANGO_DEBUG=0
