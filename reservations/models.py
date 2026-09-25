@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models.functions import Cast, Lower
 from django.contrib.auth.models import User
 
 
@@ -32,7 +33,15 @@ class Klase(models.Model):
     )
 
     class Meta:
-        ordering = ("pavadinimas",)
+        # "natūralus" rūšiavimas: pirma pagal skaičių (6F, 9D, 10S, 11V), o ne
+        # kaip tekstas (10S, 11V, 6F, 9D); esant vienodam skaičiui - pagal raidę,
+        # nekreipiant dėmesio į didžiąsias/mažąsias. SQLite CAST("10S" AS INTEGER)
+        # paima pradžios skaitmenis = 10, klasė be skaičiaus gauna 0 ir eina pirma.
+        # PASTABA: Postgres toks CAST mestų klaidą - pereinant reiktų perdaryti
+        ordering = (
+            Cast("pavadinimas", output_field=models.IntegerField()).asc(),
+            Lower("pavadinimas").asc(),
+        )
         verbose_name = "Class"
         verbose_name_plural = "Classes"
 
@@ -127,6 +136,11 @@ class Break(models.Model):
     start_time = models.TimeField()
     end_time = models.TimeField()
     description = models.CharField(max_length=100, blank=True)
+
+    # mokytojas grafike gali pasalinti viena laika - tai irgi pertrauka,
+    # tik vieno intervalo ilgio. Zyme reikalinga, kad skydelyje sie laikai
+    # butu rodomi atskirai ("Pašalinti laikai") ir juos butu galima grazinti
+    pasalintas_laikas = models.BooleanField(default=False, verbose_name="Pašalintas laikas")
 
     class Meta:
         ordering = ("start_time",)

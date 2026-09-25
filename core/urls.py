@@ -78,6 +78,7 @@ urlpatterns = [
     path("teacher/dashboard/", views.teacher_dashboard, name="teacher_dashboard"),
     path("teacher/workinghours/add/", views.teacher_add_workinghours, name="teacher_add_workinghours"),
     path("teacher/workinghours/<int:wh_id>/delete/", views.teacher_delete_workinghours, name="teacher_delete_workinghours"),
+    path("teacher/workinghours/<int:wh_id>/slot/delete/", views.teacher_delete_slot, name="teacher_delete_slot"),
     path("teacher/workinghours/<int:wh_id>/break/add/", views.teacher_add_break, name="teacher_add_break"),
     path("teacher/break/<int:break_id>/delete/", views.teacher_delete_break, name="teacher_delete_break"),
 ]

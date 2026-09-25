@@ -119,7 +119,7 @@ class TeacherAdmin(admin.ModelAdmin):
 class BreakInline(admin.TabularInline):
     model = Break
     extra = 1
-    fields = ("start_time", "end_time", "description")
+    fields = ("start_time", "end_time", "description", "pasalintas_laikas")
 
 
 @admin.register(WorkingHours)

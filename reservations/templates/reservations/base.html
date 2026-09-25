@@ -5,6 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Konsultacijų registracija{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'reservations/vendor/flatpickr.min.css' %}">
   <link rel="stylesheet" href="{% static 'reservations/style.css' %}">
 </head>
 <body>
@@ -19,15 +20,18 @@
         </div>
       </a>
 
-      {% if user.is_authenticated and topbar_vaikai %}
+      {% if user.is_authenticated %}
+        {# vaiko skiltis rodoma visada - ir mokytojui be vaiku, nes tai vienintelis kelias i vaiku nustatymus #}
         <div class="vaikas" id="vaikasBox">
-          <button class="vaikas__btn" id="vaikasToggle" type="button">
+          <button class="vaikas__btn{% if aktyvi_skiltis == 'vaikas' %} vaikas__btn--active{% endif %}" id="vaikasToggle" type="button">
             <span class="vaikas__label">Vaikas</span>
             <span class="vaikas__name">
               {% if topbar_aktyvus %}
                 {{ topbar_aktyvus.first_name }} {{ topbar_aktyvus.last_name }}
-              {% else %}
+              {% elif topbar_vaikai %}
                 nepasirinktas
+              {% else %}
+                nepridėtas
               {% endif %}
             </span>
             <span class="vaikas__arrow">&#9662;</span>
@@ -40,7 +44,9 @@
                 {{ v.first_name }} {{ v.last_name }}{% if v.klase %} ({{ v.klase.pavadinimas }}){% endif %}
               </a>
             {% endfor %}
-            <a class="vaikas__item vaikas__item--add" href="{% url 'edit_profile' %}">Nustatymai</a>
+            <a class="vaikas__item vaikas__item--add" href="{% url 'edit_profile' %}">
+              {% if topbar_vaikai %}Nustatymai{% else %}+ Pridėti vaiką{% endif %}
+            </a>
           </div>
         </div>
       {% endif %}
@@ -54,12 +60,11 @@
 
         <nav class="nav" id="navMenu">
           <button class="nav-close" id="navClose" aria-label="Uždaryti meniu">&times;</button>
-          <a class="nav__link" href="{% url 'home' %}?tipas=individualus">Individualūs</a>
-          <a class="nav__link" href="{% url 'home' %}?tipas=dalykininku">Dalykininkų</a>
-          <a class="nav__link" href="{% url 'my_reservations' %}">Mano laikai</a>
-          <a class="nav__link" href="{% url 'edit_profile' %}">Vaiko profilis</a>
+          <a class="nav__link{% if aktyvi_skiltis == 'individualus' %} nav__link--active{% endif %}" href="{% url 'home' %}?tipas=individualus">Individualūs</a>
+          <a class="nav__link{% if aktyvi_skiltis == 'dalykininku' %} nav__link--active{% endif %}" href="{% url 'home' %}?tipas=dalykininku">Dalykininkų</a>
+          <a class="nav__link{% if aktyvi_skiltis == 'mano' %} nav__link--active{% endif %}" href="{% url 'my_reservations' %}">Mano laikai</a>
           {% if is_teacher %}
-            <a class="nav__link nav__link--teacher" href="{% url 'teacher_dashboard' %}">Mokytojo grafikas</a>
+            <a class="nav__link nav__link--teacher{% if aktyvi_skiltis == 'mokytojas' %} nav__link--active{% endif %}" href="{% url 'teacher_dashboard' %}">Mokytojo grafikas</a>
           {% endif %}
           <a class="btn btn--ghost" href="{% url 'account_logout' %}">Atsijungti</a>
         </nav>
@@ -79,7 +84,33 @@
     {% block content %}{% endblock %}
   </main>
 
+  <script src="{% static 'reservations/vendor/flatpickr.min.js' %}"></script>
+  <script src="{% static 'reservations/vendor/flatpickr-lt.js' %}"></script>
   <script>
+    // lietuviskas 24 val. datos/laiko pasirinkimas vietoj narsykles lauku,
+    // kurie angliskoje narsykleje rodo AM/PM ir menuo/diena/metai.
+    // disableMobile - kad ir telefone nebutu grizta prie narsykles lauko
+    if (window.flatpickr) {
+      flatpickr.localize(flatpickr.l10ns.lt);
+
+      flatpickr(".js-laikas", {
+        enableTime: true,
+        noCalendar: true,
+        dateFormat: "H:i",
+        time_24hr: true,
+        minuteIncrement: 5,
+        allowInput: true,
+        disableMobile: true,
+      });
+
+      flatpickr(".js-data", {
+        dateFormat: "Y-m-d",
+        minDate: "today",
+        allowInput: true,
+        disableMobile: true,
+      });
+    }
+
     // mobilus meniu
     var toggle = document.getElementById("navToggle");
     var menu = document.getElementById("navMenu");

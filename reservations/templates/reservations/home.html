@@ -47,7 +47,7 @@
         {% for date in datos %}
           <a class="item item--link" href="{% url 'teacher_schedule' date %}?tipas={{ tipas }}">
             <div class="item__main">
-              <div class="item__title">{{ date|date:"l, Y-m-d" }}</div>
+              <div class="item__title">{{ date|date:"l"|capfirst }}, {{ date|date:"Y-m-d" }}</div>
             </div>
             <span class="item__arrow">›</span>
           </a>

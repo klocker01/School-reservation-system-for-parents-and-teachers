@@ -3,8 +3,9 @@ from django.contrib.auth.decorators import login_required
 from django import forms
 from django.utils import timezone
 from datetime import datetime, timedelta
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.db.models import Q #su db padeda
+from django.urls import reverse
 from django.contrib import messages
 from django.utils.http import url_has_allowed_host_and_scheme
 
@@ -25,6 +26,31 @@ class ChildForm(forms.ModelForm):
         self.fields["klase"].required = True
 
 
+# Narsykles <input type="time"> rodo AM/PM, jei narsykle angliska, o
+# <input type="date"> - menuo/diena/metai. Todel naudojam paprasta teksto
+# lauka, kuri base.html paverčia lietuvisku 24 val. kalendoriumi (flatpickr).
+# Jei skriptas neuzsikrautu, laika vis tiek galima ivesti ranka "14:30"
+def laiko_laukas(**attrs):
+    return forms.TimeInput(attrs={
+        "class": "js-laikas",
+        "placeholder": "val:min",
+        "autocomplete": "off",
+        "inputmode": "numeric",
+        "pattern": r"([01]?\d|2[0-3])[:.][0-5]\d",
+        "title": "Laikas 24 val. formatu, pvz. 14:30",
+        **attrs,
+    }, format="%H:%M")
+
+
+def datos_laukas(**attrs):
+    return forms.DateInput(attrs={
+        "class": "js-data",
+        "placeholder": "metai-mėn-diena",
+        "autocomplete": "off",
+        **attrs,
+    }, format="%Y-%m-%d")
+
+
 class WorkingHoursForm(forms.ModelForm):
     # mokytojas formoje "tipas" nepasirenka, jis gali pridėti tik individualius pokalbius
     # Dalykininku pokalbius prideda tik adminas per admin panelę
@@ -32,9 +58,9 @@ class WorkingHoursForm(forms.ModelForm):
         model = WorkingHours
         fields = ["date", "start_time", "end_time", "interval", "cabinet"]
         widgets = {
-            "date": forms.DateInput(attrs={"type": "date"}),
-            "start_time": forms.TimeInput(attrs={"type": "time"}),
-            "end_time": forms.TimeInput(attrs={"type": "time"}),
+            "date": datos_laukas(),
+            "start_time": laiko_laukas(),
+            "end_time": laiko_laukas(),
         }
 
     def __init__(self, *args, **kwargs):
@@ -48,8 +74,8 @@ class BreakForm(forms.ModelForm):
         model = Break
         fields = ["start_time", "end_time", "description"]
         widgets = {
-            "start_time": forms.TimeInput(attrs={"type": "time"}),
-            "end_time": forms.TimeInput(attrs={"type": "time"}),
+            "start_time": laiko_laukas(),
+            "end_time": laiko_laukas(),
         }
 
 
@@ -599,12 +625,18 @@ def add_child(request):
 @login_required
 def delete_child(request, child_id):
     profilis, _ = Profile.objects.get_or_create(user=request.user)
-    vaikas = get_object_or_404(Child, id=child_id, profile=profilis)
+    vaikas = get_object_or_404(Child, id=child_id, user=request.user)
 
     if request.method == "POST":
-        # jei trinamas vaikas buvo aktyvus, išvalome aktyvų vaiką
-        if profilis.active_child == vaikas:
-            profilis.active_child = None
+        # jei trinamas vaikas buvo aktyvus - aktyviu tampa kitas vaikas (jei yra),
+        # kad virsutineje juostoje nerodytu "nepasirinktas"
+        if profilis.active_child_id == vaikas.id:
+            profilis.active_child = (
+                Child.objects.filter(user=request.user)
+                .exclude(id=vaikas.id)
+                .order_by("last_name", "first_name")
+                .first()
+            )
             profilis.save()
         vaikas.delete()
         messages.success(request, "Vaikas ištrintas")
@@ -684,6 +716,7 @@ def teacher_dashboard(request):
         return redirect("home")
 
     siandien = timezone.localdate()
+    dabar = timezone.localtime()
 
     darbo_laikai = (
         WorkingHours.objects
@@ -694,20 +727,91 @@ def teacher_dashboard(request):
 
     wh_forma = WorkingHoursForm()
 
-    # kiekvienam darbo laiko blokui iskart sudedame ir laisvu/uzimtu laiku peržiūrą,
-    # kad pertraukas butu galima tvarkyti tiesiai cia pat, prie to paties bloko
-    blokai = []
+    # blokai sugrupuojami pagal data - viena kortele vienai dienai, kad
+    # mokytojui pridejus laika kitai dienai jis neatsidurtu tiesiog sąrašo gale.
+    # Kiekvienam blokui iskart sudedame ir laisvu/uzimtu laiku peržiūrą,
+    # kad pertraukas ir atskirus laikus butu galima tvarkyti tiesiai cia pat
+    dienos = []
     for wh in darbo_laikai:
-        blokai.append({
+        if not dienos or dienos[-1]["date"] != wh.date:
+            dienos.append({"date": wh.date, "blokai": []})
+
+        pertraukos = list(wh.breaks.all())
+
+        # kiek rezervaciju dings istrynus visa bloka - rodoma patvirtinimo lange
+        rezervaciju = Reservation.objects.filter(
+            teacher=mokytojas, date=wh.date, tipas=wh.tipas,
+            time__gte=wh.start_time, time__lt=wh.end_time,
+        ).count()
+
+        laikai = sudaryti_laikus(mokytojas, wh.date, [wh], tipas=wh.tipas)
+
+        # pasalinti laikai rodomi toje pacioje eileje, savo vietoje (perbraukti),
+        # kad mokytojas matytu kur jie buvo ir galetu grazinti
+        for p in pertraukos:
+            if not p.pasalintas_laikas:
+                continue
+            if wh.date == siandien and p.start_time < dabar.time():
+                continue
+            laikai.append({
+                "time": p.start_time.strftime("%H:%M"),
+                "status": "removed",
+                "break_id": p.id,
+            })
+        laikai.sort(key=lambda x: x["time"])
+
+        dienos[-1]["blokai"].append({
             "wh": wh,
-            "slots": sudaryti_laikus(mokytojas, wh.date, [wh], tipas=wh.tipas),
+            "slots": laikai,
+            "pertraukos": [p for p in pertraukos if not p.pasalintas_laikas],
+            "rezervaciju": rezervaciju,
         })
 
     return render(request, "reservations/teacher_dashboard.html", {
         "mokytojas": mokytojas,
-        "blokai": blokai,
+        "dienos": dienos,
         "wh_form": wh_forma,
     })
+
+
+# po veiksmo grazinam mokytoja prie tos pacios dienos, o ne i puslapio virsu
+def atgal_i_grafika(data=None):
+    url = reverse("teacher_dashboard")
+    if data:
+        url += f"#d-{data.isoformat()}"
+    return redirect(url)
+
+
+# Darbo laiko blokas gali buti priskirtas keliems mokytojams (adminas taip
+# kuria dalykininku pokalbius). Jei vienas mokytojas prideda pertrauka ar
+# pasalina laika tokiame bendrame bloke, pakeitimas neturi paliesti kitu -
+# todel pries keiciant atskiriam jam savo bloko kopija su visomis pertraukomis.
+# Rezervacijos susietos su mokytoju, data ir laiku, ne su bloku, tai jos nenukenčia
+def atskirti_bloka(wh, mokytojas):
+    if wh.mokytojai.count() <= 1:
+        return wh
+
+    with transaction.atomic():
+        kopija = WorkingHours.objects.create(
+            date=wh.date,
+            start_time=wh.start_time,
+            end_time=wh.end_time,
+            interval=wh.interval,
+            tipas=wh.tipas,
+            cabinet=wh.cabinet,
+        )
+        kopija.mokytojai.add(mokytojas)
+        for p in wh.breaks.all():
+            Break.objects.create(
+                working_hours=kopija,
+                start_time=p.start_time,
+                end_time=p.end_time,
+                description=p.description,
+                pasalintas_laikas=p.pasalintas_laikas,
+            )
+        wh.mokytojai.remove(mokytojas)
+
+    return kopija
 
 
 @login_required
@@ -773,9 +877,11 @@ def teacher_add_workinghours(request):
         wh.save()
         wh.mokytojai.add(mokytojas)
 
-        # viena pertrauka iš tos pačios formos – nebūtina
-        bs = request.POST.get("break_start", "").strip()
-        be = request.POST.get("break_end", "").strip()
+        # viena pertrauka iš tos pačios formos – NEBŪTINA. Jei abu laukai tusti,
+        # tiesiog nieko nedarom; jei uzpildytas tik vienas ar blogas laikas -
+        # darbo laikas vis tiek issaugomas, o mokytojui parodom kodel pertraukos nera
+        bs = request.POST.get("break_start", "").strip().replace(".", ":")
+        be = request.POST.get("break_end", "").strip().replace(".", ":")
 
         if bs and be:
             try:
@@ -786,11 +892,14 @@ def teacher_add_workinghours(request):
                 if ps < pe and ps >= wh.start_time and pe <= wh.end_time:
                     Break.objects.create(working_hours=wh, start_time=ps, end_time=pe, description=desc)
                 else:
-                    messages.warning(request, "Pertrauka neišsaugota – neteisingas laikas")
+                    messages.warning(request, "Pertrauka neišsaugota – ji turi būti darbo laiko ribose")
             except ValueError:
-                pass
+                messages.warning(request, "Pertrauka neišsaugota – neteisingas laiko formatas")
+        elif bs or be:
+            messages.warning(request, "Pertrauka neišsaugota – nurodykite ir pradžią, ir pabaigą")
 
         messages.success(request, "Darbo laikas pridėtas")
+        return atgal_i_grafika(wh.date)
     else:
         messages.error(request, "Neteisingi duomenys")
 
@@ -806,16 +915,73 @@ def teacher_delete_workinghours(request, wh_id):
     wh = get_object_or_404(WorkingHours, id=wh_id, mokytojai=mokytojas)
 
     if request.method == "POST":
-        # Istrinti susijusias rezervacijas
-        Reservation.objects.filter(teacher=mokytojas, date=wh.date,
-                                   time__gte=wh.start_time, time__lt=wh.end_time).delete()
-        wh.mokytojai.remove(mokytojas)
-        # Jei niekas kitas nepriskirtas – trinam patį įrašą
-        if not wh.mokytojai.exists():
-            wh.delete()
+        data = wh.date
+        with transaction.atomic():
+            # Istrinti susijusias rezervacijas - tik to paties tipo, kad
+            # neatsitiktinai nedingtu kito tipo rezervacijos tuo paciu laiku
+            Reservation.objects.filter(teacher=mokytojas, date=wh.date, tipas=wh.tipas,
+                                       time__gte=wh.start_time, time__lt=wh.end_time).delete()
+            wh.mokytojai.remove(mokytojas)
+            # Jei niekas kitas nepriskirtas – trinam patį įrašą
+            if not wh.mokytojai.exists():
+                wh.delete()
         messages.success(request, "Darbo laikas ištrintas")
+        return atgal_i_grafika(data)
 
     return redirect("teacher_dashboard")
+
+
+# vieno laiko pasalinimas is bloko - laikas uzdengiamas vieno intervalo
+# ilgio pertrauka, tai tevai jo nebemato ir rezervuoti negali
+# (sudaryti_laikus ir laikas_leistinas pertraukas jau praleidzia)
+@login_required
+def teacher_delete_slot(request, wh_id):
+    mokytojas = get_teacher_for_user(request.user)
+    if not mokytojas:
+        return redirect("home")
+
+    wh = get_object_or_404(WorkingHours, id=wh_id, mokytojai=mokytojas)
+
+    if request.method != "POST":
+        return atgal_i_grafika(wh.date)
+
+    try:
+        laikas = datetime.strptime(request.POST.get("time", ""), "%H:%M").time()
+    except ValueError:
+        messages.error(request, "Neteisingas laikas")
+        return atgal_i_grafika(wh.date)
+
+    # laikas turi buti bloko ribose ir sutapti su intervalu tinkleliu,
+    # kitaip pertrauka uzdengtu puse vieno laiko ir puse kito
+    pradzia = datetime.combine(wh.date, wh.start_time)
+    pabaiga = datetime.combine(wh.date, wh.end_time)
+    t = datetime.combine(wh.date, laikas)
+    if not (pradzia <= t < pabaiga) or (t - pradzia) % timedelta(minutes=wh.interval):
+        messages.error(request, "Toks laikas šiame bloke neegzistuoja")
+        return atgal_i_grafika(wh.date)
+
+    # rezervuoto laiko netrinam - tevai nesuzinotu, kad ju laikas dingo
+    if Reservation.objects.filter(teacher=mokytojas, date=wh.date, time=laikas).exists():
+        messages.error(
+            request,
+            f"Laikas {laikas.strftime('%H:%M')} jau rezervuotas – jo pašalinti negalima",
+        )
+        return atgal_i_grafika(wh.date)
+
+    if wh.breaks.filter(start_time__lte=laikas, end_time__gt=laikas).exists():
+        messages.warning(request, f"Laikas {laikas.strftime('%H:%M')} jau pašalintas")
+        return atgal_i_grafika(wh.date)
+
+    wh = atskirti_bloka(wh, mokytojas)
+    Break.objects.create(
+        working_hours=wh,
+        start_time=laikas,
+        end_time=min(t + timedelta(minutes=wh.interval), pabaiga).time(),
+        description="Pašalintas laikas",
+        pasalintas_laikas=True,
+    )
+    messages.success(request, f"Laikas {laikas.strftime('%H:%M')} pašalintas")
+    return atgal_i_grafika(wh.date)
 
 
 @login_required
@@ -827,7 +993,7 @@ def teacher_add_break(request, wh_id):
     wh = get_object_or_404(WorkingHours, id=wh_id, mokytojai=mokytojas)
 
     if request.method != "POST":
-        return redirect("teacher_dashboard")
+        return atgal_i_grafika(wh.date)
 
     forma = BreakForm(request.POST)
     if forma.is_valid():
@@ -835,11 +1001,11 @@ def teacher_add_break(request, wh_id):
 
         if pertrauka.start_time >= pertrauka.end_time:
             messages.error(request, "Pertraukos pabaiga turi būti vėliau, nei pradžia")
-            return redirect("teacher_dashboard")
+            return atgal_i_grafika(wh.date)
 
         if pertrauka.start_time < wh.start_time or pertrauka.end_time > wh.end_time:
             messages.error(request, "Pertrauka turi būti darbo laiko ribose")
-            return redirect("teacher_dashboard")
+            return atgal_i_grafika(wh.date)
 
         # apsauga – jei tuo laiku jau yra tevu rezervacija, pertraukos pridėti negalima
         uzimta = Reservation.objects.filter(
@@ -851,15 +1017,16 @@ def teacher_add_break(request, wh_id):
 
         if uzimta:
             messages.error(request, "Pasirinktu laiko intervalu jau yra rezervacijos")
-            return redirect("teacher_dashboard")
+            return atgal_i_grafika(wh.date)
 
-        pertrauka.working_hours = wh
+        # bendrame bloke pertrauka turi paliesti tik si mokytoja
+        pertrauka.working_hours = atskirti_bloka(wh, mokytojas)
         pertrauka.save()
         messages.success(request, "Pertrauka pridėta")
     else:
         messages.error(request, "Neteisingi pertraukos duomenys")
 
-    return redirect("teacher_dashboard")
+    return atgal_i_grafika(wh.date)
 
 
 @login_required
@@ -870,11 +1037,27 @@ def teacher_delete_break(request, break_id):
 
     pertrauka = get_object_or_404(Break, id=break_id, working_hours__mokytojai=mokytojas)
 
-    if request.method == "POST":
-        pertrauka.delete()
-        messages.success(request, "Pertrauka ištrinta")
+    wh = pertrauka.working_hours
 
-    return redirect("teacher_dashboard")
+    if request.method == "POST":
+        if wh.mokytojai.count() > 1:
+            # bendras blokas - kitiems mokytojams pertrauka turi likti, tai
+            # atskiriam sio mokytojo kopija ir trinam pertrauka tik joje
+            kopija = atskirti_bloka(wh, mokytojas)
+            kopija.breaks.filter(
+                start_time=pertrauka.start_time,
+                end_time=pertrauka.end_time,
+                pasalintas_laikas=pertrauka.pasalintas_laikas,
+            ).delete()
+        else:
+            pertrauka.delete()
+
+        if pertrauka.pasalintas_laikas:
+            messages.success(request, f"Laikas {pertrauka.start_time.strftime('%H:%M')} grąžintas")
+        else:
+            messages.success(request, "Pertrauka ištrinta")
+
+    return atgal_i_grafika(wh.date)
 
 
 #ar mokytojas egzistuoja patikra
@@ -900,4 +1083,33 @@ def teacher_context(request):
         "is_teacher": is_teacher,
         "topbar_vaikai": vaikai,
         "topbar_aktyvus": aktyvus,
+        "aktyvi_skiltis": aktyvi_skiltis(request),
     }
+
+
+# kurioje navigacijos skiltyje yra vartotojas - pagal ja virsutineje juostoje
+# po nuoroda piesiamas baltas bruksnys. Tipas imamas is URL, nes tas pats
+# "home" ir "teacher_schedule" puslapis aptarnauja abu pokalbiu tipus
+def aktyvi_skiltis(request):
+    atitikmuo = getattr(request, "resolver_match", None)
+    pavadinimas = atitikmuo.url_name if atitikmuo else None
+
+    if pavadinimas in ("home", "teacher_schedule", "reserve_timeslot"):
+        tipas = request.GET.get("tipas") or request.POST.get("tipas")
+        # grafikas be tipo parametro rodo individualius (zr. teacher_schedule)
+        if pavadinimas != "home" and tipas not in ("individualus", "dalykininku"):
+            tipas = "individualus"
+        if tipas in ("individualus", "dalykininku"):
+            return tipas
+        return None
+
+    if pavadinimas in ("my_reservations", "cancel_reservation"):
+        return "mano"
+
+    if pavadinimas and pavadinimas.startswith("teacher_"):
+        return "mokytojas"
+
+    if pavadinimas == "edit_profile":
+        return "vaikas"
+
+    return None

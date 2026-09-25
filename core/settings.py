@@ -119,7 +119,7 @@ AUTH_PASSWORD_VALIDATORS = [ #Cia nereikalinga projektui
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',},
 ]
 
-LANGUAGE_CODE = 'en-gb'
+LANGUAGE_CODE = 'lt'
 TIME_ZONE = 'Europe/Vilnius'
 USE_I18N = True
 USE_TZ = True
