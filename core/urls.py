@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.views.generic import RedirectView
 
-from reservations import views
+from reservations import views, views_vadovas
 
 
 urlpatterns = [
@@ -81,4 +81,17 @@ urlpatterns = [
     path("teacher/workinghours/<int:wh_id>/slot/delete/", views.teacher_delete_slot, name="teacher_delete_slot"),
     path("teacher/workinghours/<int:wh_id>/break/add/", views.teacher_add_break, name="teacher_add_break"),
     path("teacher/break/<int:break_id>/delete/", views.teacher_delete_break, name="teacher_delete_break"),
+
+    # Mokytojo pokalbiai su vadovu
+    path("teacher/vadovas/", views_vadovas.pokalbiai_vadovas, name="pokalbiai_vadovas"),
+    path("teacher/vadovas/<int:vadovas_id>/reserve/", views_vadovas.pokalbiai_vadovas_rezervuoti, name="pokalbiai_vadovas_rezervuoti"),
+    path("teacher/vadovas/reservation/<int:rezervacija_id>/cancel/", views_vadovas.pokalbiai_vadovas_atsaukti, name="pokalbiai_vadovas_atsaukti"),
+
+    # Vadovo grafiko valdymas
+    path("vadovas/dashboard/", views_vadovas.vadovas_dashboard, name="vadovas_dashboard"),
+    path("vadovas/laikas/add/", views_vadovas.vadovas_add_laikas, name="vadovas_add_laikas"),
+    path("vadovas/laikas/<int:laikas_id>/delete/", views_vadovas.vadovas_delete_laikas, name="vadovas_delete_laikas"),
+    path("vadovas/laikas/<int:laikas_id>/slot/delete/", views_vadovas.vadovas_delete_slot, name="vadovas_delete_slot"),
+    path("vadovas/laikas/<int:laikas_id>/break/add/", views_vadovas.vadovas_add_break, name="vadovas_add_break"),
+    path("vadovas/break/<int:break_id>/delete/", views_vadovas.vadovas_delete_break, name="vadovas_delete_break"),
 ]

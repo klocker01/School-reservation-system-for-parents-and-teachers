@@ -1,0 +1,35 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div>
+  <p>
+    Įkelkite Excel (.xlsx) arba CSV failą su tėvų el. pašto adresais. Programa
+    nuskaito <strong>tik el. pašto adresus</strong> – vardai, pavardės, klasės ir kiti
+    stulpeliai ignoruojami, todėl failo forma nesvarbi.
+  </p>
+
+  <p>
+    Adresai, kurie faile kartojasi ar jau yra sąraše, antrą kartą nepridedami.
+    Failą galima kelti kelis kartus.
+  </p>
+
+  <table style="margin: 12px 0 20px; border-collapse: collapse;">
+    <tr>
+      <th style="border:1px solid #ccc; padding:6px 12px;">El. paštas</th>
+    </tr>
+    <tr>
+      <td style="border:1px solid #ccc; padding:6px 12px;">jonaitiene@gmail.com</td>
+    </tr>
+    <tr>
+      <td style="border:1px solid #ccc; padding:6px 12px;">petras.petraitis@gmail.com</td>
+    </tr>
+  </table>
+
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ forma.as_p }}
+    <input type="submit" value="Įkelti" class="default">
+    <a href="{% url 'admin:reservations_leistinasemail_changelist' %}" style="margin-left:12px;">Atgal</a>
+  </form>
+</div>
+{% endblock %}

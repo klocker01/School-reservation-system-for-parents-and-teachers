@@ -65,6 +65,10 @@
           <a class="nav__link{% if aktyvi_skiltis == 'mano' %} nav__link--active{% endif %}" href="{% url 'my_reservations' %}">Mano laikai</a>
           {% if is_teacher %}
             <a class="nav__link nav__link--teacher{% if aktyvi_skiltis == 'mokytojas' %} nav__link--active{% endif %}" href="{% url 'teacher_dashboard' %}">Mokytojo grafikas</a>
+            <a class="nav__link nav__link--teacher{% if aktyvi_skiltis == 'pokalbiai_vadovas' %} nav__link--active{% endif %}" href="{% url 'pokalbiai_vadovas' %}">Pokalbiai su vadovu</a>
+          {% endif %}
+          {% if is_vadovas %}
+            <a class="nav__link nav__link--teacher{% if aktyvi_skiltis == 'vadovas' %} nav__link--active{% endif %}" href="{% url 'vadovas_dashboard' %}">Vadovo grafikas</a>
           {% endif %}
           <a class="btn btn--ghost" href="{% url 'account_logout' %}">Atsijungti</a>
         </nav>

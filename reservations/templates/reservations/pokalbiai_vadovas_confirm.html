@@ -1,0 +1,51 @@
+{% extends "reservations/base.html" %}
+{% block title %}Patvirtinti rezervaciją{% endblock %}
+
+{% block content %}
+<div class="stack">
+
+  <div class="card" style="max-width:600px; margin:0 auto;">
+    <div class="card__hd">
+      <h1 class="card__title">Patvirtinti rezervaciją</h1>
+    </div>
+
+    <div class="card__bd" style="overflow:visible;">
+      <div class="stack">
+
+        <div class="item">
+          <div class="item__main">
+            <div class="item__title">{{ vadovas.vardas }} {{ vadovas.pavarde }}</div>
+            <div class="item__meta">
+              Data: {{ date }}{% if kabinetas %}, kabinetas: {{ kabinetas.pavadinimas }}{% endif %}
+            </div>
+          </div>
+          <span class="badge">Vadovas</span>
+        </div>
+
+        <div class="item">
+          <div class="item__main">
+            <div class="item__title">Pasirinktas laikas</div>
+            <div class="item__meta" style="margin-top:6px;">
+              <span class="badge">{{ time }}</span>
+            </div>
+          </div>
+        </div>
+
+        <form method="post" action="{% url 'pokalbiai_vadovas_rezervuoti' vadovas.id %}" style="margin-top:12px;">
+          {% csrf_token %}
+          <input type="hidden" name="date" value="{{ date }}">
+          <input type="hidden" name="time" value="{{ time }}">
+          <input type="hidden" name="confirm" value="yes">
+
+          <div style="display:flex; gap:12px; flex-wrap:wrap;">
+            <button class="btn btn--good" type="submit">Patvirtinti</button>
+            <a class="btn btn--ghost" href="{% url 'pokalbiai_vadovas' %}#v-{{ vadovas.id }}-{{ date }}">Atšaukti</a>
+          </div>
+        </form>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

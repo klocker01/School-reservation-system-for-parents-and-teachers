@@ -5,17 +5,16 @@ from django.contrib.auth.models import User
 from django.shortcuts import redirect
 from django.urls import reverse
 
-from .models import LeistinasEmail, Teacher
+from .models import LeistinasEmail, Teacher, Vadovas
 
 
 ATMETIMO_ZINUTE = (
     "Su adresu {email} prisijungti negalima – jis nėra įtrauktas į mokyklos sąrašą. "
-    "Prieigą suteikia Herojaus administracija, kreipkitės į ją ir nurodykite "
-    "el. paštą, kuriuo norite naudotis."
+    "Prieigą suteikia Herojaus administracija, kreipkitės gimnazija@herojus.lt"
 )
 
 
-# tris keliai patekti i sistema: baltasis sarasas, mokytojo adresas
+# keturi keliai patekti i sistema: baltasis sarasas, mokytojo ar vadovo adresas
 # arba admino paskyra (kad neuzsirakintume patys)
 def ar_leidziamas_email(email):
     email = (email or "").strip().lower()
@@ -26,6 +25,9 @@ def ar_leidziamas_email(email):
         return True
 
     if Teacher.objects.filter(email__iexact=email).exists():
+        return True
+
+    if Vadovas.objects.filter(email__iexact=email).exists():
         return True
 
     if User.objects.filter(email__iexact=email, is_staff=True).exists():

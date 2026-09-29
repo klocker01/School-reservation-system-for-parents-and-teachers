@@ -1,0 +1,113 @@
+{% extends "reservations/base.html" %}
+{% block title %}Pokalbiai su vadovu{% endblock %}
+
+{% block content %}
+<div class="stack">
+
+  <div class="card">
+    <div class="card__hd">
+      <h1 class="card__title">Pokalbiai su vadovu</h1>
+      <p class="card__sub">Pasirinkite laisvą laiką ir užsiregistruokite pokalbiui su mokyklos vadovu</p>
+    </div>
+  </div>
+
+  {% if mano %}
+    <div class="card">
+      <div class="card__hd">
+        <h2 class="card__title">Mano užsiregistruoti laikai</h2>
+      </div>
+      <div class="card__bd">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Laikas</th>
+                <th>Vadovas</th>
+                <th>Kabinetas</th>
+                <th>Veiksmas</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in mano %}
+                <tr>
+                  <td data-antraste="Data">{{ item.r.date|date:"Y-m-d" }}</td>
+                  <td data-antraste="Laikas"><strong>{{ item.r.time|time:"H:i" }}</strong></td>
+                  <td data-antraste="Vadovas">{{ item.r.vadovas }}</td>
+                  <td data-antraste="Kabinetas">{{ item.r.cabinet.pavadinimas|default:"—" }}</td>
+                  <td data-antraste="Veiksmas">
+                    {% if item.can_cancel %}
+                      <form method="post" action="{% url 'pokalbiai_vadovas_atsaukti' item.r.id %}">
+                        {% csrf_token %}
+                        <button class="btn btn--bad" type="submit"
+                          onclick="return confirm('Atšaukti rezervaciją {{ item.r.date|date:"Y-m-d" }} {{ item.r.time|time:"H:i" }}?')">
+                          Atšaukti
+                        </button>
+                      </form>
+                    {% else %}
+                      <span class="badge">Likę &lt; 24 h</span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
+  {% for v in data %}
+    <div class="card">
+      <div class="card__hd">
+        <h2 class="card__title">{{ v.vadovas.vardas }} {{ v.vadovas.pavarde }}</h2>
+      </div>
+      <div class="card__bd">
+        <div class="list">
+          {% for d in v.dienos %}
+            <section class="diena" id="v-{{ v.vadovas.id }}-{{ d.date|date:'Y-m-d' }}">
+              <div class="diena__hd">
+                <span class="diena__data">{{ d.date|date:"Y-m-d" }}</span>
+                <span class="diena__sav">{{ d.date|date:"l"|capfirst }}</span>
+              </div>
+
+              {% for blokas in d.blokai %}
+                <div class="blokas">
+                  <div class="blokas__meta">
+                    {{ blokas.wh.start_time|time:"H:i" }} – {{ blokas.wh.end_time|time:"H:i" }},
+                    kabinetas: {{ blokas.wh.cabinet.pavadinimas|default:"—" }}
+                  </div>
+
+                  <div class="times">
+                    {% for s in blokas.slots %}
+                      {% if s.status == "free" %}
+                        <form method="post" action="{% url 'pokalbiai_vadovas_rezervuoti' v.vadovas.id %}" class="times__form">
+                          {% csrf_token %}
+                          <input type="hidden" name="date" value="{{ d.date|date:'Y-m-d' }}">
+                          <input type="hidden" name="time" value="{{ s.time }}">
+                          <button class="btn btn--good btn--time" type="submit">{{ s.time }} laisva</button>
+                        </form>
+                      {% elif s.status == "mine" %}
+                        <span class="pill pill--free" title="Jūsų rezervacija">{{ s.time }} jūsų</span>
+                      {% else %}
+                        <span class="pill" title="{{ s.by }}">{{ s.time }} {{ s.by }}</span>
+                      {% endif %}
+                    {% endfor %}
+                  </div>
+                </div>
+              {% endfor %}
+            </section>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  {% empty %}
+    <div class="card">
+      <div class="card__bd">
+        <div class="alert">Šiuo metu vadovai laikų pokalbiams nėra paskelbę.</div>
+      </div>
+    </div>
+  {% endfor %}
+
+</div>
+{% endblock %}

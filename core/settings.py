@@ -3,14 +3,17 @@ import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent #Kad leistu django rasti failus 
 
+DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
+
 KEY_FAILAS = BASE_DIR / "secure_key.txt"
 if KEY_FAILAS.exists():
     SECRET_KEY = KEY_FAILAS.read_text().strip()
-else:
+elif DEBUG:
     SECRET_KEY = "tik-vietiniam-darbui-netinka-serveriui"
-
-
-DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
+else:
+    # serveryje be rakto nepasileidziam - kitaip sesijos butu pasirasytos viesu raktu
+    from django.core.exceptions import ImproperlyConfigured
+    raise ImproperlyConfigured("Nerastas secure_key.txt - serveryje jis butinas")
 
 ALLOWED_HOSTS = ["registracija.herojus.lt",'localhost', '127.0.0.1']
 

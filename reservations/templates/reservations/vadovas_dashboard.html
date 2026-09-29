@@ -1,0 +1,215 @@
+{% extends "reservations/base.html" %}
+{% block title %}Vadovo grafikas{% endblock %}
+
+{% block content %}
+<div class="stack">
+
+  <!-- Antraštė -->
+  <div class="card">
+    <div class="card__hd">
+      <h1 class="card__title">Vadovo pokalbių grafikas</h1>
+      <p class="card__sub">
+        {{ vadovas.vardas }} {{ vadovas.pavarde }}.
+        Šiuos laikus mato ir rezervuoti gali tik mokytojai.
+      </p>
+    </div>
+  </div>
+
+  <!-- Pridėti darbo laiką -->
+  <div class="card">
+    <div class="card__hd">
+      <h2 class="card__title">Pridėti darbo laiką</h2>
+      <p class="card__sub">Nurodykite datą, laiką ir kabinetą, kada mokytojai galės užsiregistruoti pokalbiui su jumis</p>
+    </div>
+    <div class="card__bd">
+      <form method="post" action="{% url 'vadovas_add_laikas' %}" class="form-row" style="max-width:480px;">
+        {% csrf_token %}
+
+        <label>Data</label>
+        {{ wh_form.date }}
+
+        <div style="display:flex; gap:16px; flex-wrap:wrap;">
+          <div style="flex:1; min-width:120px;">
+            <label>Pradžia</label>
+            {{ wh_form.start_time }}
+          </div>
+          <div style="flex:1; min-width:120px;">
+            <label>Pabaiga</label>
+            {{ wh_form.end_time }}
+          </div>
+          <div style="flex:1; min-width:120px;">
+            <label>Laiko intervalas</label>
+            {{ wh_form.interval }}
+          </div>
+        </div>
+
+        <div style="margin-top:16px; max-width:260px;">
+          <label>Kabinetas (būtina)</label>
+          {{ wh_form.cabinet }}
+        </div>
+
+        <!-- pertrauka – nebūtina, daugiau galima pridėti po išsaugojimo -->
+        <div style="margin-top:16px;">
+          <label style="font-weight:700; margin-bottom:8px; display:block;">Pertrauka (nebūtina)</label>
+          <div style="display:flex; gap:12px; flex-wrap:wrap;">
+            <div style="flex:1; min-width:100px;">
+              <label>Pradžia</label>
+              <input type="text" name="break_start" class="js-laikas" placeholder="val:min" autocomplete="off" inputmode="numeric" pattern="([01]?\d|2[0-3])[:.][0-5]\d" title="Laikas 24 val. formatu, pvz. 14:30">
+            </div>
+            <div style="flex:1; min-width:100px;">
+              <label>Pabaiga</label>
+              <input type="text" name="break_end" class="js-laikas" placeholder="val:min" autocomplete="off" inputmode="numeric" pattern="([01]?\d|2[0-3])[:.][0-5]\d" title="Laikas 24 val. formatu, pvz. 14:30">
+            </div>
+      
+          </div>
+          <p style="font-size:0.8rem; color:var(--muted); margin-top:6px;">Jei reikia daugiau pertraukų – jas galima pridėti po išsaugojimo.</p>
+        </div>
+
+        <div style="margin-top:20px;">
+          <button class="btn" type="submit">Pridėti laikus pokalbiams</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Mano grafikas – sugrupuotas pagal datas, prie kiekvieno bloko matosi laikai,
+       galima pasalinti atskira laika, visa bloka ir tvarkyti pertraukas -->
+  <div class="card">
+    <div class="card__hd">
+      <h2 class="card__title">Mano grafikas</h2>
+      <p class="card__sub">Laisvą laiką galite pašalinti paspaudę ×, pašalintą – grąžinti paspaudę ↺</p>
+    </div>
+    <div class="card__bd">
+
+      {% if dienos %}
+        <div class="list">
+          {% for d in dienos %}
+            <section class="diena" id="d-{{ d.date|date:'Y-m-d' }}">
+              <div class="diena__hd">
+                <span class="diena__data">{{ d.date|date:"Y-m-d" }}</span>
+                <span class="diena__sav">{{ d.date|date:"l"|capfirst }}</span>
+              </div>
+
+              {% for blokas in d.blokai %}
+                {% with wh=blokas.wh %}
+                <div class="blokas">
+
+                  <!-- Bloko eilutė -->
+                  <div class="blokas__hd">
+                    <div>
+                      <div class="blokas__laikas">
+                        {{ wh.start_time|time:"H:i" }} – {{ wh.end_time|time:"H:i" }}
+                      </div>
+                      <div class="blokas__meta">
+                        kas {{ wh.interval }} min.,
+                        kabinetas: {{ wh.cabinet.pavadinimas|default:"—" }}
+                        {% if blokas.rezervaciju %}· rezervuota: {{ blokas.rezervaciju }}{% endif %}
+                      </div>
+                    </div>
+
+                    <!-- Ištrinti visą bloką -->
+                    <form method="post" action="{% url 'vadovas_delete_laikas' wh.id %}">
+                      {% csrf_token %}
+                      <button class="btn btn--bad" type="submit"
+                        onclick="return confirm('Ištrinti visą bloką {{ wh.start_time|time:"H:i" }}–{{ wh.end_time|time:"H:i" }}?{% if blokas.rezervaciju %}\n\nDėmesio: kartu bus ištrinta rezervacijų: {{ blokas.rezervaciju }}. Mokytojai apie tai nebus informuoti.{% endif %}')">
+                        Ištrinti bloką
+                      </button>
+                    </form>
+                  </div>
+
+                  <!-- Laikai -->
+                  <div class="times">
+                    {% for s in blokas.slots %}
+                      {% if s.status == "free" %}
+                        <form class="pill__form" method="post" action="{% url 'vadovas_delete_slot' wh.id %}">
+                          {% csrf_token %}
+                          <input type="hidden" name="time" value="{{ s.time }}">
+                          <span class="pill pill--free pill--del">
+                            <span class="pill__t">{{ s.time }}</span>
+                            <button class="pill__x" type="submit" title="Pašalinti laiką {{ s.time }}"
+                              aria-label="Pašalinti laiką {{ s.time }}">×</button>
+                          </span>
+                        </form>
+                      {% elif s.status == "removed" %}
+                        <form class="pill__form" method="post" action="{% url 'vadovas_delete_break' s.break_id %}">
+                          {% csrf_token %}
+                          <span class="pill pill--removed">
+                            <span class="pill__t">{{ s.time }}</span>
+                            <button class="pill__x" type="submit" title="Grąžinti laiką {{ s.time }}"
+                              aria-label="Grąžinti laiką {{ s.time }}">↺</button>
+                          </span>
+                        </form>
+                      {% else %}
+                        <span class="pill" title="{{ s.by }}">{{ s.time }} {{ s.by }}</span>
+                      {% endif %}
+                    {% empty %}
+                      <span class="blokas__meta">Laikų nebeliko</span>
+                    {% endfor %}
+                  </div>
+
+                  <!-- Pertraukos -->
+                  {% if blokas.pertraukos %}
+                    <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                      {% for b in blokas.pertraukos %}
+                        <div style="display:flex; align-items:center; gap:6px;">
+                          <span class="badge">
+                            Pertrauka {{ b.start_time|time:"H:i" }}–{{ b.end_time|time:"H:i" }}
+                            {% if b.description %}({{ b.description }}){% endif %}
+                          </span>
+                          <form method="post" action="{% url 'vadovas_delete_break' b.id %}">
+                            {% csrf_token %}
+                            <button class="btn btn--bad btn--time" type="submit" title="Ištrinti pertrauką">×</button>
+                          </form>
+                        </div>
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+
+                  <!-- Pridėti pertrauką – iskart prie sio bloko, niekur eiti nereikia -->
+                  <details style="width:100%;">
+                    <summary class="btn btn--ghost" style="cursor:pointer; display:inline-block;">+ Pridėti pertrauką</summary>
+                    <form method="post" action="{% url 'vadovas_add_break' wh.id %}"
+                      class="form-row" style="max-width:400px; margin-top:10px; padding-left:4px;">
+                      {% csrf_token %}
+
+                      <div style="display:flex; gap:12px; flex-wrap:wrap;">
+                        <div style="flex:1; min-width:100px;">
+                          <label>Pradžia</label>
+                          <input type="text" name="start_time" class="js-laikas" placeholder="val:min" autocomplete="off" inputmode="numeric" pattern="([01]?\d|2[0-3])[:.][0-5]\d" title="Laikas 24 val. formatu, pvz. 14:30" required>
+                        </div>
+                        <div style="flex:1; min-width:100px;">
+                          <label>Pabaiga</label>
+                          <input type="text" name="end_time" class="js-laikas" placeholder="val:min" autocomplete="off" inputmode="numeric" pattern="([01]?\d|2[0-3])[:.][0-5]\d" title="Laikas 24 val. formatu, pvz. 14:30" required>
+                        </div>
+                        <div style="flex:2; min-width:140px;">
+                          <label>Aprašymas (nebūtinas)</label>
+                          <input type="text" name="description" maxlength="100" placeholder="pvz. pietūs">
+                        </div>
+                      </div>
+
+                      <p style="font-size:0.8rem; color:var(--muted); margin-top:6px;">
+                        Pertraukos pridėti negalima, jei tuo laiku jau yra mokytojų rezervacija.
+                      </p>
+
+                      <div style="margin-top:10px;">
+                        <button class="btn" type="submit">Pridėti pertrauką</button>
+                      </div>
+                    </form>
+                  </details>
+
+                </div>
+                {% endwith %}
+              {% endfor %}
+            </section>
+          {% endfor %}
+        </div>
+
+      {% else %}
+        <div class="alert">Dar nėra būsimų laikų</div>
+      {% endif %}
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}

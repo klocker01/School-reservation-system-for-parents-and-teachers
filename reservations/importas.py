@@ -1,7 +1,11 @@
 import csv
 import io
+import re
 
-from .models import Teacher
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
+
+from .models import Teacher, LeistinasEmail
 
 
 # antrasciu variantai, kuriuos atpazistame stulpeliuose
@@ -36,8 +40,9 @@ def rasti_stulpelius(eilute):
     return None
 
 
-def _eilutes_is_failo(failas, vardas):
-    """Grazina eiluciu sarasa - kiekviena eilute yra langeliu sarasas."""
+def _eilutes_is_failo(failas, vardas, visi_lapai=False):
+    """Grazina eiluciu sarasa - kiekviena eilute yra langeliu sarasas.
+    visi_lapai=True - Excel faile skaitomi visi lapai, ne tik aktyvus."""
     vardas = (vardas or "").lower()
 
     if vardas.endswith(".csv"):
@@ -55,8 +60,11 @@ def _eilutes_is_failo(failas, vardas):
     import openpyxl
 
     knyga = openpyxl.load_workbook(failas, read_only=True, data_only=True)
-    lapas = knyga.active
-    return [list(eil) for eil in lapas.iter_rows(values_only=True)]
+    lapai = knyga.worksheets if visi_lapai else [knyga.active]
+    eilutes = []
+    for lapas in lapai:
+        eilutes.extend(list(eil) for eil in lapas.iter_rows(values_only=True))
+    return eilutes
 
 
 def importuoti_mokytojus(failas, failo_vardas):
@@ -135,5 +143,63 @@ def importuoti_mokytojus(failas, failo_vardas):
         else:
             Teacher.objects.create(vardas=vardas, pavarde=pavarde, email=email)
             ataskaita["sukurta"] += 1
+
+    return ataskaita
+
+
+# viename langelyje gali buti ir daugiau teksto ("Jonas <jonas@gmail.com>")
+# ar keli adresai per kabliataski - is visur istraukiam tik pacius adresus
+EMAIL_RASTI = re.compile(r"[A-Za-z0-9._%+'-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}")
+
+
+def importuoti_tevu_emailus(failas, failo_vardas):
+    """Is failo istraukia tik el. pasto adresus (vardai, klases ir kiti
+    stulpeliai ignoruojami) ir prideda juos i tevu baltaji sarasa.
+
+    Adresai lyginami mazosiomis raidemis, tai tas pats adresas faile keliskart
+    ar jau esantis sarase antra karta nepridedamas."""
+
+    ataskaita = {"prideta": 0, "jau_buvo": 0, "pasikartojo": 0, "klaidos": []}
+
+    try:
+        eilutes = _eilutes_is_failo(failas, failo_vardas, visi_lapai=True)
+    except Exception as e:
+        ataskaita["klaidos"].append(f"Failo nepavyko perskaityti: {e}")
+        return ataskaita
+
+    rasti = []
+    matyti = set()
+    for eilute in eilutes:
+        for langelis in eilute or []:
+            tekstas = _svarus(langelis)
+            if "@" not in tekstas:
+                continue
+            for email in EMAIL_RASTI.findall(tekstas):
+                email = email.strip(".").lower()
+                try:
+                    validate_email(email)
+                except ValidationError:
+                    ataskaita["klaidos"].append(f"Netinkamas el. paštas „{email}“")
+                    continue
+                if email in matyti:
+                    ataskaita["pasikartojo"] += 1
+                    continue
+                matyti.add(email)
+                rasti.append(email)
+
+    if not rasti:
+        ataskaita["klaidos"].append("Faile nerasta nė vieno el. pašto adreso")
+        return ataskaita
+
+    esami = {e.lower() for e in LeistinasEmail.objects.values_list("email", flat=True)}
+    nauji = [e for e in rasti if e not in esami]
+    ataskaita["jau_buvo"] = len(rasti) - len(nauji)
+
+    # ignore_conflicts - jei tuo pat metu kas nors prideda ta pati adresa
+    LeistinasEmail.objects.bulk_create(
+        [LeistinasEmail(email=e) for e in nauji],
+        ignore_conflicts=True,
+    )
+    ataskaita["prideta"] = len(nauji)
 
     return ataskaita

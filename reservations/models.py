@@ -4,7 +4,11 @@ from django.contrib.auth.models import User
 
 
 class Subject(models.Model):
-    pavadinimas = models.CharField(max_length=100)
+    pavadinimas = models.CharField(max_length=100, verbose_name="Pavadinimas")
+
+    class Meta:
+        verbose_name = "Dalykas"
+        verbose_name_plural = "Dalykai"
 
     def __str__(self):
         return self.pavadinimas
@@ -12,7 +16,11 @@ class Subject(models.Model):
 
 
 class Cabinet(models.Model):
-    pavadinimas = models.CharField(max_length=50)
+    pavadinimas = models.CharField(max_length=50, verbose_name="Pavadinimas")
+
+    class Meta:
+        verbose_name = "Kabinetas"
+        verbose_name_plural = "Kabinetai"
 
     def __str__(self):
         return self.pavadinimas
@@ -20,7 +28,7 @@ class Cabinet(models.Model):
 
 
 class Klase(models.Model):
-    pavadinimas = models.CharField(max_length=20)
+    pavadinimas = models.CharField(max_length=20, verbose_name="Pavadinimas")
 
     # adminas paskiria viena aukletoja klasei
     aukletojas = models.ForeignKey(
@@ -42,24 +50,24 @@ class Klase(models.Model):
             Cast("pavadinimas", output_field=models.IntegerField()).asc(),
             Lower("pavadinimas").asc(),
         )
-        verbose_name = "Class"
-        verbose_name_plural = "Classes"
+        verbose_name = "Klasė"
+        verbose_name_plural = "Klasės"
 
     def __str__(self):
         return self.pavadinimas
 
 
 class Teacher(models.Model):
-    vardas = models.CharField(max_length=50)
-    pavarde = models.CharField(max_length=50)
+    vardas = models.CharField(max_length=50, verbose_name="Vardas")
+    pavarde = models.CharField(max_length=50, verbose_name="Pavardė")
 
     # vienas mokytojas gali tureti kelis dalykus
-    dalykai = models.ManyToManyField(Subject, blank=True)
+    dalykai = models.ManyToManyField(Subject, blank=True, verbose_name="Dalykai")
 
     # adminas nurodo kurias klases mokytojas moko
     klases = models.ManyToManyField(Klase, blank=True, verbose_name="Klasės")
 
-    kabinetas = models.ForeignKey(Cabinet, on_delete=models.SET_NULL, null=True, blank=True)
+    kabinetas = models.ForeignKey(Cabinet, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Kabinetas")
 
     # Gmail adresas susietas su mokytoju (neprivalomas)
     email = models.EmailField(
@@ -71,6 +79,8 @@ class Teacher(models.Model):
 
     class Meta:
         ordering = ("pavarde", "vardas")
+        verbose_name = "Mokytojas"
+        verbose_name_plural = "Mokytojai"
 
     def __str__(self):
         return f"{self.vardas} {self.pavarde}"
@@ -80,7 +90,7 @@ class WorkingHours(models.Model):
     mokytojai = models.ManyToManyField(
         Teacher,
         related_name="working_hours",
-        verbose_name="Teachers"
+        verbose_name="Mokytojai"
     )
 
     INTERVAL_CHOICES = [
@@ -96,10 +106,10 @@ class WorkingHours(models.Model):
         ("dalykininku", "Dalykininku pokalbis"),
     ]
 
-    date = models.DateField()
-    start_time = models.TimeField()
-    end_time = models.TimeField()
-    interval = models.IntegerField(default=10, choices=INTERVAL_CHOICES)
+    date = models.DateField(verbose_name="Data")
+    start_time = models.TimeField(verbose_name="Pradžia")
+    end_time = models.TimeField(verbose_name="Pabaiga")
+    interval = models.IntegerField(default=10, choices=INTERVAL_CHOICES, verbose_name="Laiko intervalas")
     tipas = models.CharField(
         max_length=20,
         choices=TIPAS_CHOICES,
@@ -120,8 +130,8 @@ class WorkingHours(models.Model):
 
     class Meta:
         ordering = ("date", "start_time")
-        verbose_name = "Working hours"
-        verbose_name_plural = "Working hours"
+        verbose_name = "Darbo laikas"
+        verbose_name_plural = "Darbo laikai"
 
     def __str__(self):
         return f"{self.date} {self.start_time}-{self.end_time} ({self.tipas})"
@@ -131,11 +141,12 @@ class Break(models.Model):
     working_hours = models.ForeignKey(
         WorkingHours,
         on_delete=models.CASCADE,
-        related_name="breaks"
+        related_name="breaks",
+        verbose_name="Darbo laikas",
     )
-    start_time = models.TimeField()
-    end_time = models.TimeField()
-    description = models.CharField(max_length=100, blank=True)
+    start_time = models.TimeField(verbose_name="Pradžia")
+    end_time = models.TimeField(verbose_name="Pabaiga")
+    description = models.CharField(max_length=100, blank=True, verbose_name="Aprašymas")
 
     # mokytojas grafike gali pasalinti viena laika - tai irgi pertrauka,
     # tik vieno intervalo ilgio. Zyme reikalinga, kad skydelyje sie laikai
@@ -144,15 +155,17 @@ class Break(models.Model):
 
     class Meta:
         ordering = ("start_time",)
+        verbose_name = "Pertrauka"
+        verbose_name_plural = "Pertraukos"
 
     def __str__(self):
         return f"{self.working_hours.date} {self.start_time}-{self.end_time}"
 
 
 class Child(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="children")
-    first_name = models.CharField(max_length=50)
-    last_name = models.CharField(max_length=50)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="children", verbose_name="Tėvų paskyra")
+    first_name = models.CharField(max_length=50, verbose_name="Vardas")
+    last_name = models.CharField(max_length=50, verbose_name="Pavardė")
 
     # klase dabar yra ForeignKey i Klase modeli
     klase = models.ForeignKey(
@@ -165,6 +178,8 @@ class Child(models.Model):
 
     class Meta:
         ordering = ("last_name", "first_name")
+        verbose_name = "Vaikas"
+        verbose_name_plural = "Vaikai"
 
     def __str__(self):
         klase_str = self.klase.pavadinimas if self.klase else "?"
@@ -172,8 +187,12 @@ class Child(models.Model):
 
 
 class Profile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
-    active_child = models.ForeignKey(Child, on_delete=models.SET_NULL, null=True, blank=True)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, verbose_name="Vartotojas")
+    active_child = models.ForeignKey(Child, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Aktyvus vaikas")
+
+    class Meta:
+        verbose_name = "Profilis"
+        verbose_name_plural = "Profiliai"
 
     def __str__(self):
         return self.user.email
@@ -182,18 +201,18 @@ class Profile(models.Model):
 class Reservation(models.Model):
     # tevu rezervacija - user turi bus
     # admin rezervacija - user gali buti tuscias
-    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, verbose_name="Tėvų paskyra")
 
-    teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE)
-    date = models.DateField()
-    time = models.TimeField()
-    created_at = models.DateTimeField(auto_now_add=True)
+    teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE, verbose_name="Mokytojas")
+    date = models.DateField(verbose_name="Data")
+    time = models.TimeField(verbose_name="Laikas")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Sukurta")
 
-    child = models.ForeignKey(Child, on_delete=models.SET_NULL, null=True, blank=True)
+    child = models.ForeignKey(Child, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Vaikas")
 
-    reserved_first_name = models.CharField(max_length=50, blank=True)
-    reserved_last_name = models.CharField(max_length=50, blank=True)
-    reserved_class = models.CharField(max_length=20, blank=True)
+    reserved_first_name = models.CharField(max_length=50, blank=True, verbose_name="Vaiko vardas")
+    reserved_last_name = models.CharField(max_length=50, blank=True, verbose_name="Vaiko pavardė")
+    reserved_class = models.CharField(max_length=20, blank=True, verbose_name="Klasė")
 
     # pokalbio tipas - fiksuojamas rezervavimo metu is darbo laiko bloko.
     # Reikalingas tam, kad mokytojo skydelyje individualiu ir dalykininku
@@ -218,6 +237,8 @@ class Reservation(models.Model):
     class Meta:
         unique_together = ("teacher", "date", "time")
         ordering = ("date", "time")
+        verbose_name = "Rezervacija"
+        verbose_name_plural = "Rezervacijos"
 
     def __str__(self):
         if self.reserved_first_name and self.reserved_last_name:
@@ -256,8 +277,8 @@ class LeistinasEmail(models.Model):
 
     class Meta:
         ordering = ("email",)
-        verbose_name = "Parent email"
-        verbose_name_plural = "Parents emails"
+        verbose_name = "Tėvų el. paštas"
+        verbose_name_plural = "Tėvų el. paštai"
 
     # visada saugom mazosiomis, kad palyginimas neapviltu
     def save(self, *args, **kwargs):
@@ -266,3 +287,97 @@ class LeistinasEmail(models.Model):
 
     def __str__(self):
         return self.email
+
+
+class Vadovas(models.Model):
+    """Mokyklos vadovas (direktorius, pavaduotojas). Adminas priskiria el. pasta -
+    prisijungus tuo adresu vartotojas mato vadovo grafika ir gali skirti laikus
+    pokalbiams su mokytojais. Siuos laikus mato ir rezervuoja tik mokytojai."""
+
+    vardas = models.CharField(max_length=50, verbose_name="Vardas")
+    pavarde = models.CharField(max_length=50, verbose_name="Pavardė")
+    email = models.EmailField(
+        unique=True,
+        verbose_name="Vadovo Gmail",
+        help_text="Šiuo adresu prisijungęs vadovas matys savo grafiką ir galės skirti laikus mokytojams",
+    )
+
+    class Meta:
+        ordering = ("pavarde", "vardas")
+        verbose_name = "Vadovas"
+        verbose_name_plural = "Vadovas"
+
+    def save(self, *args, **kwargs):
+        self.email = (self.email or "").strip().lower()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.vardas} {self.pavarde}"
+
+
+class VadovoLaikas(models.Model):
+    """Vadovo darbo laiko blokas pokalbiams su mokytojais. Skirtingai nei
+    mokytojai, vadovas neturi numatyto kabineto, tai kabinetas nurodomas
+    kiekvienam blokui atskirai."""
+
+    vadovas = models.ForeignKey(Vadovas, on_delete=models.CASCADE, related_name="laikai", verbose_name="Vadovas")
+    date = models.DateField(verbose_name="Data")
+    start_time = models.TimeField(verbose_name="Pradžia")
+    end_time = models.TimeField(verbose_name="Pabaiga")
+    interval = models.IntegerField(
+        default=15,
+        choices=WorkingHours.INTERVAL_CHOICES,
+        verbose_name="Laiko intervalas",
+    )
+    cabinet = models.ForeignKey(
+        Cabinet,
+        on_delete=models.SET_NULL,
+        null=True,
+        verbose_name="Kabinetas",
+    )
+
+    class Meta:
+        ordering = ("date", "start_time")
+        verbose_name = "Vadovo laikas"
+        verbose_name_plural = "Vadovo laikai"
+
+    def __str__(self):
+        return f"{self.vadovas} {self.date} {self.start_time}-{self.end_time}"
+
+
+class VadovoPertrauka(models.Model):
+    laikas = models.ForeignKey(VadovoLaikas, on_delete=models.CASCADE, related_name="breaks", verbose_name="Vadovo laikas")
+    start_time = models.TimeField(verbose_name="Pradžia")
+    end_time = models.TimeField(verbose_name="Pabaiga")
+    description = models.CharField(max_length=100, blank=True, verbose_name="Aprašymas")
+    # kaip ir mokytoju Break - vieno intervalo ilgio "pasalintas laikas"
+    pasalintas_laikas = models.BooleanField(default=False, verbose_name="Pašalintas laikas")
+
+    class Meta:
+        ordering = ("start_time",)
+        verbose_name = "Vadovo pertrauka"
+        verbose_name_plural = "Vadovo pertraukos"
+
+    def __str__(self):
+        return f"{self.laikas.date} {self.start_time}-{self.end_time}"
+
+
+class VadovoRezervacija(models.Model):
+    """Mokytojo uzsiregistruotas laikas pokalbiui su vadovu."""
+
+    vadovas = models.ForeignKey(Vadovas, on_delete=models.CASCADE, related_name="rezervacijos", verbose_name="Vadovas")
+    mokytojas = models.ForeignKey(Teacher, on_delete=models.CASCADE, related_name="vadovo_rezervacijos", verbose_name="Mokytojas")
+    date = models.DateField(verbose_name="Data")
+    time = models.TimeField(verbose_name="Laikas")
+    # kabinetas fiksuojamas rezervavimo metu is vadovo laiko bloko
+    cabinet = models.ForeignKey(Cabinet, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Kabinetas")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Sukurta")
+
+    class Meta:
+        unique_together = ("vadovas", "date", "time")
+        ordering = ("date", "time")
+        verbose_name = "Pokalbis su vadovu"
+        verbose_name_plural = "Pokalbiai su vadovu"
+
+    def __str__(self):
+        return f"{self.mokytojas} -> {self.vadovas} | {self.date} {self.time}"

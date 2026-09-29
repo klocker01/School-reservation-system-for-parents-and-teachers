@@ -10,7 +10,10 @@ from django.contrib import messages
 from django.utils.http import url_has_allowed_host_and_scheme
 
 
-from .models import Teacher, Reservation, WorkingHours, Break, Profile, Child, Klase, Cabinet
+from .models import (
+    Teacher, Reservation, WorkingHours, Break, Profile, Child, Klase, Cabinet,
+    Vadovas, VadovoLaikas, VadovoRezervacija,
+)
 
 
 class ChildForm(forms.ModelForm):
@@ -90,7 +93,7 @@ def get_teacher_for_user(user):
 
 
 # tevas be ne vieno vaiko negali nieko rezervuoti, tai siunciam ji i profili.
-# Mokytoju sita netrukdo - jie naudojasi savo skydeliu.
+# Mokytoju ir vadovu sita netrukdo - jie naudojasi savo skydeliu.
 # Jei vaiku yra, bet ne vienas nepazymetas aktyviu - pazymim pirma, kad
 # vartotojas neatsidurtu tusciame puslapyje be jokio paaiskinimo
 def patikrinti_vaika(request):
@@ -98,6 +101,8 @@ def patikrinti_vaika(request):
 
     if not vaikai.exists():
         if get_teacher_for_user(request.user):
+            return None
+        if request.user.email and Vadovas.objects.filter(email__iexact=request.user.email).exists():
             return None
         # zinutes nerodome - profilio puslapyje ir taip stovi paaiskinimas,
         # o dvi vienodos zinutes viena virs kitos atrodo prastai
@@ -189,6 +194,61 @@ def laikas_leistinas(mokytojas, data, laikas, tipas="individualus"):
 
 
 
+# mokytojo pokalbiai su vadovu ta diena - tuo metu tevai pas ji registruotis negali.
+# Jei mokytojas pats yra ir vadovas, iskaitom ir pokalbius, kuriuos veda jis.
+# Grazina (pradzia, pabaiga) poras, pabaiga = laikas + vadovo bloko intervalas
+def mokytojo_laikai_pas_vadova(mokytojas, data):
+    salyga = Q(mokytojas=mokytojas)
+    if mokytojas.email:
+        salyga |= Q(vadovas__email__iexact=mokytojas.email)
+
+    rezervacijos = list(VadovoRezervacija.objects.filter(salyga, date=data))
+    if not rezervacijos:
+        return []
+
+    blokai = list(VadovoLaikas.objects.filter(
+        date=data, vadovas_id__in={r.vadovas_id for r in rezervacijos},
+    ))
+
+    uzimta = []
+    for r in rezervacijos:
+        intervalas = 15
+        for b in blokai:
+            if b.vadovas_id == r.vadovas_id and b.start_time <= r.time < b.end_time:
+                intervalas = b.interval
+                break
+        pradzia = datetime.combine(data, r.time)
+        uzimta.append((pradzia, pradzia + timedelta(minutes=intervalas)))
+    return uzimta
+
+
+# tevu rezervacijos pas mokytoja ta diena kaip (pradzia, pabaiga) poros,
+# pabaiga = laikas + darbo laiko bloko intervalas
+def tevu_laikai_pas_mokytoja(mokytojas, data):
+    rezervacijos = list(Reservation.objects.filter(teacher=mokytojas, date=data))
+    if not rezervacijos:
+        return []
+
+    blokai = list(WorkingHours.objects.filter(mokytojai=mokytojas, date=data))
+
+    uzimta = []
+    for r in rezervacijos:
+        intervalas = 10
+        for b in blokai:
+            if b.tipas == r.tipas and b.start_time <= r.time < b.end_time:
+                intervalas = b.interval
+                break
+        pradzia = datetime.combine(data, r.time)
+        uzimta.append((pradzia, pradzia + timedelta(minutes=intervalas)))
+    return uzimta
+
+
+# ar laikas [pradzia, pradzia + trukme) kertasi su kuriuo nors uzimtu intervalu
+def kertasi(pradzia, trukme, uzimta):
+    pabaiga = pradzia + timedelta(minutes=trukme)
+    return any(p < pabaiga and pradzia < g for p, g in uzimta)
+
+
 # pagalbine – ar laikai eina is eiles pagal intervala
 def laikai_is_eiles(data, laikai, intervalas=10):
     for i in range(1, len(laikai)):
@@ -227,6 +287,9 @@ def sudaryti_laikus(mokytojas, pasirinkta_data, darbo_laikai, request_user=None,
     rezervacijos = {}
     for rez in rez_qs.select_related("child", "cabinet"):
         rezervacijos[rez.time] = rez
+
+    # laikai, kai mokytojas kalbasi su vadovu - tevams jie uzimti
+    pas_vadova = mokytojo_laikai_pas_vadova(mokytojas, pasirinkta_data)
 
     laikai = []
 
@@ -301,6 +364,12 @@ def sudaryti_laikus(mokytojas, pasirinkta_data, darbo_laikai, request_user=None,
                         "status": "busy",
                         "by": kas
                     })
+            elif kertasi(einamas, darbo.interval, pas_vadova):
+                laikai.append({
+                    "time": laikas.strftime("%H:%M"),
+                    "status": "busy",
+                    "by": "Pokalbis su vadovu" if show_names else "Užimta",
+                })
             else:
                 laikai.append({
                     "time": laikas.strftime("%H:%M"),
@@ -499,6 +568,12 @@ def reserve_timeslot(request, teacher_id):
 
     # uzimta pas ta pati mokytoja
     if Reservation.objects.filter(teacher=mokytojas, date=data, time__in=laikai).exists():
+        return redirect(f"/schedule/{datos_tekstas}/?tipas={tipas}")
+
+    # mokytojas tuo metu kalbasi su vadovu
+    pas_vadova = mokytojo_laikai_pas_vadova(mokytojas, data)
+    if any(kertasi(datetime.combine(data, t), intervalas, pas_vadova) for t in laikai):
+        messages.error(request, "Šis laikas jau užimtas")
         return redirect(f"/schedule/{datos_tekstas}/?tipas={tipas}")
 
     # vienas tevas negali buti dviejose vietose tuo paciu metu –
@@ -1064,8 +1139,10 @@ def teacher_delete_break(request, break_id):
 def teacher_context(request):
     if request.user.is_authenticated and request.user.email:
         is_teacher = Teacher.objects.filter(email__iexact=request.user.email).exists()
+        is_vadovas = Vadovas.objects.filter(email__iexact=request.user.email).exists()
     else:
         is_teacher = False
+        is_vadovas = False
     # virsutines juostos vaiku perjungikliui
     vaikai = []
     aktyvus = None
@@ -1081,6 +1158,7 @@ def teacher_context(request):
 
     return {
         "is_teacher": is_teacher,
+        "is_vadovas": is_vadovas,
         "topbar_vaikai": vaikai,
         "topbar_aktyvus": aktyvus,
         "aktyvi_skiltis": aktyvi_skiltis(request),
@@ -1108,6 +1186,12 @@ def aktyvi_skiltis(request):
 
     if pavadinimas and pavadinimas.startswith("teacher_"):
         return "mokytojas"
+
+    if pavadinimas and pavadinimas.startswith("vadovas_"):
+        return "vadovas"
+
+    if pavadinimas and pavadinimas.startswith("pokalbiai_vadovas"):
+        return "pokalbiai_vadovas"
 
     if pavadinimas == "edit_profile":
         return "vaikas"
