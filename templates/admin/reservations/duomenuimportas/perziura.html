@@ -1,0 +1,162 @@
+{% extends "admin/base_site.html" %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">Pradinis</a>
+  &rsaquo; <a href="{% url 'admin:app_list' app_label='reservations' %}">Rezervacijos</a>
+  &rsaquo; <a href="{% url 'admin:reservations_duomenuimportas_changelist' %}">Importuoti duomenys</a>
+  &rsaquo; Peržiūra
+</div>
+{% endblock %}
+
+{% block content %}
+<div>
+  {% if zinute %}
+    <ul class="messagelist"><li class="warning">{{ zinute }}</li></ul>
+  {% endif %}
+
+  <p>
+    {% if failas %}
+      Failas: <strong>{{ failas }}</strong>{% if lapas %}, lapas „{{ lapas }}“{% endif %}.
+    {% else %}
+      Dublikatų patikrinimas (be failo).
+    {% endif %}
+    <strong>Kol nepaspausite „Patvirtinti“, niekas nepakeista.</strong>
+  </p>
+
+  {% if planas.ispejimai %}
+    <ul class="messagelist">
+      {% for i in planas.ispejimai %}<li class="warning">{{ i }}</li>{% endfor %}
+    </ul>
+  {% endif %}
+
+  {% if planas.naujos_klases %}
+    <ul class="messagelist">
+      <li class="warning">
+        Šių klasių sistemoje nėra – jos bus sukurtos: <strong>{{ planas.naujos_klases|join:", " }}</strong>.
+        Patikrinkite, ar tai ne esamos klasės kitu pavadinimu – kitaip tėvai sąraše matys dvi panašias klases.
+        Esamos klasės: {{ planas.esamos_klases|join:", "|default:"—" }}.
+      </li>
+    </ul>
+  {% endif %}
+
+  {% if planas.dublikatai %}
+    <div class="module">
+      <h2>Dublikatai – bus sujungti, dublikatas ištrintas ({{ planas.dublikatai|length }})</h2>
+      <table style="width:100%;">
+        <thead><tr><th></th><th>Paliekamas</th><th>Ištrinamas dublikatas</th><th>Perkeliama į paliekamą</th></tr></thead>
+        <tbody>
+          {% for d in planas.dublikatai %}
+            <tr>
+              <td>{{ d.tipas }}</td>
+              <td style="color:#070;">{{ d.palikta }}</td>
+              <td style="color:#a00;">{{ d.istrinta }}</td>
+              <td>{{ d.perkelta }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+
+  {% if planas.nauji %}
+    <div class="module">
+      <h2>Nauji mokytojai ({{ planas.nauji|length }})</h2>
+      <table style="width:100%;">
+        <thead>
+          <tr><th>Eil.</th><th>Vardas</th><th>Pavardė</th><th>El. paštas</th><th>Dalykai</th><th>Kabinetas</th><th>Auklėjama klasė</th></tr>
+        </thead>
+        <tbody>
+          {% for i in planas.nauji %}
+            <tr>
+              <td>{{ i.eilute.nr }}</td>
+              <td>{{ i.eilute.vardas }}</td>
+              <td>{{ i.eilute.pavarde }}</td>
+              <td>{{ i.eilute.email }}</td>
+              <td>{{ i.eilute.dalykai|join:", "|default:"—" }}</td>
+              <td>{{ i.eilute.kabinetas|default:"—" }}</td>
+              <td>{{ i.klases }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+
+  {% if planas.atnaujinami %}
+    <div class="module">
+      <h2>Bus atnaujinti ({{ planas.atnaujinami|length }})</h2>
+      <table style="width:100%;">
+        <thead>
+          <tr><th>Eil.</th><th>Mokytojas</th><th>Laukas</th><th>Dabar</th><th>Bus</th></tr>
+        </thead>
+        <tbody>
+          {% for i in planas.atnaujinami %}
+            {% for laukas, sena, nauja in i.pakeitimai %}
+              <tr>
+                {% if forloop.first %}
+                  <td rowspan="{{ i.pakeitimai|length }}">{{ i.eilute.nr }}</td>
+                  <td rowspan="{{ i.pakeitimai|length }}">{{ i.mokytojas.vardas }} {{ i.mokytojas.pavarde }}<br><span style="color:#666;">{{ i.eilute.email }}</span></td>
+                {% endif %}
+                <td>{{ laukas }}</td>
+                <td style="color:#a00;">{{ sena }}</td>
+                <td style="color:#070;">{{ nauja }}</td>
+              </tr>
+            {% endfor %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+
+  {% if planas.klasiu_pokyciai %}
+    <div class="module">
+      <h2>Klasių auklėtojai ({{ planas.klasiu_pokyciai|length }})</h2>
+      <table style="width:100%;">
+        <thead><tr><th>Klasė</th><th>Dabar</th><th>Bus</th></tr></thead>
+        <tbody>
+          {% for k in planas.klasiu_pokyciai %}
+            <tr>
+              <td>{{ k.klase }}{% if k.nauja %} <strong>(nauja klasė)</strong>{% endif %}</td>
+              <td style="color:#a00;">{{ k.buvo }}</td>
+              <td style="color:#070;">{{ k.bus }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+
+  {% if planas.nauji_kabinetai or planas.nauji_dalykai %}
+    <div class="module">
+      <h2>Bus sukurta</h2>
+      <table style="width:100%;">
+        {% if planas.nauji_kabinetai %}
+          <tr><th style="width:160px;">Kabinetai ({{ planas.nauji_kabinetai|length }})</th><td>{{ planas.nauji_kabinetai|join:", " }}</td></tr>
+        {% endif %}
+        {% if planas.nauji_dalykai %}
+          <tr><th>Dalykai ({{ planas.nauji_dalykai|length }})</th><td>{{ planas.nauji_dalykai|join:", " }}</td></tr>
+        {% endif %}
+      </table>
+    </div>
+  {% endif %}
+
+  {% if failas %}
+    <p>
+      Jau sutampa, nieko nekeičiama: <strong>{{ planas.nepakite }}</strong>.
+      Mokytojai, kurių faile nėra, lieka kaip buvo.
+    </p>
+  {% endif %}
+
+  {% if planas.nauji or planas.atnaujinami or planas.dublikatai %}
+    <form method="post" action="{% url 'admin:reservations_duomenuimportas_patvirtinti' %}">
+      {% csrf_token %}
+      <input type="submit" value="Patvirtinti ir įrašyti" class="default">
+      <a href="{% url 'admin:reservations_duomenuimportas_changelist' %}" style="margin-left:12px;">Atšaukti</a>
+    </form>
+  {% else %}
+    <p><strong>{% if failas %}Visi duomenys jau sutampa su failu{% else %}Dublikatų nerasta{% endif %} – nėra ką keisti.</strong></p>
+    <a href="{% url 'admin:reservations_duomenuimportas_changelist' %}">Atgal</a>
+  {% endif %}
+</div>
+{% endblock %}

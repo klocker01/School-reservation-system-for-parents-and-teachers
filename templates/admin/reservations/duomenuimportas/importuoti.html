@@ -1,0 +1,87 @@
+{% extends "admin/base_site.html" %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">Pradinis</a>
+  &rsaquo; <a href="{% url 'admin:app_list' app_label='reservations' %}">Rezervacijos</a>
+  &rsaquo; Importuoti duomenys
+</div>
+{% endblock %}
+
+{% block content %}
+<div>
+  {% if klaidos %}
+    <p class="errornote">
+      Failo įkelti negalima – <strong>niekas nepakeista</strong>. Pataisykite failą ir įkelkite iš naujo.
+    </p>
+    <ul class="errorlist">
+      {% for klaida in klaidos|slice:":50" %}<li>{{ klaida }}</li>{% endfor %}
+      {% if klaidos|length > 50 %}<li>…ir dar {{ klaidos|length|add:"-50" }} klaidos</li>{% endif %}
+    </ul>
+  {% endif %}
+
+  <p>
+    Čia keliamas <strong>pilnas mokytojų sąrašas</strong> – su dalykais, kabinetais ir auklėjamomis
+    klasėmis. Excel (.xlsx) arba CSV failas. Iš Google Sheets:
+    <em>Failas → Atsisiųsti → Microsoft Excel (.xlsx)</em>.
+  </p>
+
+  <p>
+    Pirmoje eilutėje turi būti <strong>tiksliai šie stulpeliai, tokia tvarka</strong>
+    (prieš juos gali būti vienas stulpelis, pvz. eilės numeris – jis praleidžiamas).
+    Jei failo forma kitokia, niekas nekeičiama.
+  </p>
+
+  <table style="margin: 12px 0 20px; border-collapse: collapse;">
+    <tr>
+      {% for s in stulpeliai %}<th style="border:1px solid #ccc; padding:6px 12px;">{{ s }}</th>{% endfor %}
+    </tr>
+    <tr>
+      <td style="border:1px solid #ccc; padding:6px 12px;">Agnė</td>
+      <td style="border:1px solid #ccc; padding:6px 12px;">Laskytė</td>
+      <td style="border:1px solid #ccc; padding:6px 12px;">agne.laskyte@herojus.lt</td>
+      <td style="border:1px solid #ccc; padding:6px 12px;">Psichologė</td>
+      <td style="border:1px solid #ccc; padding:6px 12px;">HAU klasė 3a.</td>
+      <td style="border:1px solid #ccc; padding:6px 12px;"></td>
+    </tr>
+    <tr>
+      <td style="border:1px solid #ccc; padding:6px 12px;">Brigita</td>
+      <td style="border:1px solid #ccc; padding:6px 12px;">Misevičiūtė</td>
+      <td style="border:1px solid #ccc; padding:6px 12px;">brigita.miseviciute@herojus.lt</td>
+      <td style="border:1px solid #ccc; padding:6px 12px;">Prancūzų kalbos mokytoja, klasės vadovė</td>
+      <td style="border:1px solid #ccc; padding:6px 12px;">Mundus klasė</td>
+      <td style="border:1px solid #ccc; padding:6px 12px;">5B</td>
+    </tr>
+  </table>
+
+  <ul>
+    <li>Mokytojas atpažįstamas pagal <strong>el. paštą</strong>. Jei jo dar nėra – sukuriamas, jei yra – jo duomenys atnaujinami.</li>
+    <li><strong>Dalykas</strong> – keli dalykai rašomi per kablelį. Mokytojo dalykai pakeičiami tais, kurie parašyti faile.</li>
+    <li><strong>Auklėjama klasė</strong> – klasei priskiriamas šis auklėtojas.</li>
+    <li>Tuščias Dalyko, Kabineto ar Klasės langelis esamų duomenų nekeičia.</li>
+    <li>Mokytojai, kurių faile nėra, nekeičiami ir netrinami.</li>
+    <li>Kabinetai, dalykai ir klasės, kurių sistemoje dar nėra, sukuriami.</li>
+    <li>
+      <strong>Dublikatai</strong> – jei tas pats mokytojas (tas pats el. paštas) ar ta pati klasė sistemoje
+      yra kelis kartus, jie sujungiami į vieną: rezervacijos, darbo laikai, vaikai perkeliami, o dublikatas ištrinamas.
+    </li>
+  </ul>
+
+  <p>
+    Įkėlus failą pirmiausia bus parodyta, <strong>kas bus pakeista</strong>. Duomenys
+    įrašomi tik paspaudus „Patvirtinti“.
+  </p>
+
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ forma.as_p }}
+    <input type="submit" value="Įkelti ir peržiūrėti" class="default">
+  </form>
+
+  <form method="post" style="margin-top:24px;">
+    {% csrf_token %}
+    <p style="color:#666;">Arba be failo – tik patikrinti, ar sistemoje nėra mokytojų ir klasių dublikatų:</p>
+    <input type="submit" name="tik_dublikatai" value="Patikrinti dublikatus">
+  </form>
+</div>
+{% endblock %}

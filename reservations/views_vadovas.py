@@ -31,7 +31,7 @@ class VadovoLaikasForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["cabinet"].required = True
-        self.fields["cabinet"].queryset = Cabinet.objects.order_by("pavadinimas")
+        self.fields["cabinet"].queryset = Cabinet.objects.all()
         self.fields["cabinet"].empty_label = "-- pasirinkite kabinetą --"
 
 
@@ -75,7 +75,7 @@ def vadovo_bloko_laikai(blokas, mokytojas=None, rodyti_vardus=False):
 
     while einamas < pabaiga:
         laikas = einamas.time()
-        einamas += timedelta(minutes=blokas.interval)
+        einamas += timedelta(minutes=blokas.trukme)
 
         if any(p.start_time <= laikas < p.end_time for p in pertraukos):
             continue
@@ -109,7 +109,7 @@ def rasti_vadovo_bloka(vadovas, data, laikas):
         pabaiga = datetime.combine(data, blokas.end_time)
         if not (pradzia <= t < pabaiga):
             continue
-        if (t - pradzia) % timedelta(minutes=blokas.interval):
+        if (t - pradzia) % timedelta(minutes=blokas.trukme):
             continue
         if any(p.start_time <= laikas < p.end_time for p in blokas.breaks.all()):
             continue
@@ -232,7 +232,10 @@ def vadovas_add_laikas(request):
     bs = request.POST.get("break_start", "").strip().replace(".", ":")
     be = request.POST.get("break_end", "").strip().replace(".", ":")
 
-    if bs and be:
+    # blokas be intervalo yra vienas laikas - pertraukos jame nebūna
+    if not blokas.interval and (bs or be):
+        messages.warning(request, "Pertrauka neišsaugota – laike be intervalo pertraukų būti negali")
+    elif bs and be:
         try:
             ps = datetime.strptime(bs, "%H:%M").time()
             pe = datetime.strptime(be, "%H:%M").time()
@@ -290,7 +293,7 @@ def vadovas_delete_slot(request, laikas_id):
     pradzia = datetime.combine(blokas.date, blokas.start_time)
     pabaiga = datetime.combine(blokas.date, blokas.end_time)
     t = datetime.combine(blokas.date, laikas)
-    if not (pradzia <= t < pabaiga) or (t - pradzia) % timedelta(minutes=blokas.interval):
+    if not (pradzia <= t < pabaiga) or (t - pradzia) % timedelta(minutes=blokas.trukme):
         messages.error(request, "Toks laikas šiame bloke neegzistuoja")
         return atgal_i_vadovo_grafika(blokas.date)
 
@@ -308,7 +311,7 @@ def vadovas_delete_slot(request, laikas_id):
     VadovoPertrauka.objects.create(
         laikas=blokas,
         start_time=laikas,
-        end_time=min(t + timedelta(minutes=blokas.interval), pabaiga).time(),
+        end_time=min(t + timedelta(minutes=blokas.trukme), pabaiga).time(),
         description="Pašalintas laikas",
         pasalintas_laikas=True,
     )
@@ -325,6 +328,10 @@ def vadovas_add_break(request, laikas_id):
     blokas = get_object_or_404(VadovoLaikas, id=laikas_id, vadovas=vadovas)
 
     if request.method != "POST":
+        return atgal_i_vadovo_grafika(blokas.date)
+
+    if not blokas.interval:
+        messages.error(request, "Laike be intervalo pertraukų būti negali")
         return atgal_i_vadovo_grafika(blokas.date)
 
     forma = VadovoPertraukaForm(request.POST)
@@ -465,17 +472,17 @@ def pokalbiai_vadovas_rezervuoti(request, vadovas_id):
 
     # mokytojas negali buti dviejose vietose tuo paciu metu
     pradzia = datetime.combine(data, laikas)
-    if kertasi(pradzia, blokas.interval, mokytojo_laikai_pas_vadova(mokytojas, data)):
+    if kertasi(pradzia, blokas.trukme, mokytojo_laikai_pas_vadova(mokytojas, data)):
         messages.error(request, "Tuo laiku jau esate užsiregistravę pas kitą vadovą")
         return atgal
 
-    if kertasi(pradzia, blokas.interval, tevu_laikai_pas_mokytoja(mokytojas, data)):
+    if kertasi(pradzia, blokas.trukme, tevu_laikai_pas_mokytoja(mokytojas, data)):
         messages.error(request, "Tuo laiku pas jus jau užsiregistravę tėvai")
         return atgal
 
     # jei vadovas kartu yra ir mokytojas - tuo metu pas ji neturi buti tevu
     vadovas_mokytojas = Teacher.objects.filter(email__iexact=vadovas.email).first()
-    if vadovas_mokytojas and kertasi(pradzia, blokas.interval, tevu_laikai_pas_mokytoja(vadovas_mokytojas, data)):
+    if vadovas_mokytojas and kertasi(pradzia, blokas.trukme, tevu_laikai_pas_mokytoja(vadovas_mokytojas, data)):
         messages.error(request, "Šis laikas jau užimtas")
         return atgal
 
@@ -491,7 +498,7 @@ def pokalbiai_vadovas_rezervuoti(request, vadovas_id):
         messages.error(request, "Galima rezervuoti ne daugiau nei 3 laikus pas vieną vadovą per dieną")
         return atgal
 
-    if not laikai_is_eiles(data, visi, blokas.interval):
+    if not laikai_is_eiles(data, visi, blokas.trukme):
         messages.error(request, "Laikai turi eiti iš eilės be tarpų")
         return atgal
 

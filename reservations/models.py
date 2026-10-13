@@ -1,12 +1,16 @@
+from datetime import datetime
+
 from django.db import models
-from django.db.models.functions import Cast, Lower
 from django.contrib.auth.models import User
+
+from .rusiavimas import lt
 
 
 class Subject(models.Model):
     pavadinimas = models.CharField(max_length=100, verbose_name="Pavadinimas")
 
     class Meta:
+        ordering = (lt("pavadinimas"),)
         verbose_name = "Dalykas"
         verbose_name_plural = "Dalykai"
 
@@ -19,6 +23,7 @@ class Cabinet(models.Model):
     pavadinimas = models.CharField(max_length=50, verbose_name="Pavadinimas")
 
     class Meta:
+        ordering = (lt("pavadinimas"),)
         verbose_name = "Kabinetas"
         verbose_name_plural = "Kabinetai"
 
@@ -28,7 +33,8 @@ class Cabinet(models.Model):
 
 
 class Klase(models.Model):
-    pavadinimas = models.CharField(max_length=20, verbose_name="Pavadinimas")
+    # pvz. "6A" arba "1 Augustinos | Žurnalistai"
+    pavadinimas = models.CharField(max_length=50, verbose_name="Pavadinimas")
 
     # adminas paskiria viena aukletoja klasei
     aukletojas = models.ForeignKey(
@@ -43,13 +49,8 @@ class Klase(models.Model):
     class Meta:
         # "natūralus" rūšiavimas: pirma pagal skaičių (6F, 9D, 10S, 11V), o ne
         # kaip tekstas (10S, 11V, 6F, 9D); esant vienodam skaičiui - pagal raidę,
-        # nekreipiant dėmesio į didžiąsias/mažąsias. SQLite CAST("10S" AS INTEGER)
-        # paima pradžios skaitmenis = 10, klasė be skaičiaus gauna 0 ir eina pirma.
-        # PASTABA: Postgres toks CAST mestų klaidą - pereinant reiktų perdaryti
-        ordering = (
-            Cast("pavadinimas", output_field=models.IntegerField()).asc(),
-            Lower("pavadinimas").asc(),
-        )
+        # nekreipiant dėmesio į didžiąsias/mažąsias (žr. rusiavimas.py)
+        ordering = (lt("pavadinimas"),)
         verbose_name = "Klasė"
         verbose_name_plural = "Klasės"
 
@@ -78,12 +79,22 @@ class Teacher(models.Model):
     )
 
     class Meta:
-        ordering = ("pavarde", "vardas")
+        ordering = (lt("pavarde"), lt("vardas"))
         verbose_name = "Mokytojas"
         verbose_name_plural = "Mokytojai"
 
     def __str__(self):
         return f"{self.vardas} {self.pavarde}"
+
+
+# vieno laiko trukme minutemis. Blokas "be intervalo" (interval=0) yra vienas
+# laikas per visa bloka, tai jo trukme - viso bloko ilgis
+def bloko_trukme(blokas):
+    if blokas.interval:
+        return blokas.interval
+    pradzia = datetime.combine(blokas.date, blokas.start_time)
+    pabaiga = datetime.combine(blokas.date, blokas.end_time)
+    return max(int((pabaiga - pradzia).total_seconds() // 60), 1)
 
 
 class WorkingHours(models.Model):
@@ -93,7 +104,9 @@ class WorkingHours(models.Model):
         verbose_name="Mokytojai"
     )
 
+    # 0 - be intervalo: visas pasirinktas laiko tarpas yra vienas laikas
     INTERVAL_CHOICES = [
+        (0, "Be intervalo (vienas laikas)"),
         (15, "15 minučių"),
         (30, "30 minučių"),
         (45, "45 minutės"),
@@ -109,7 +122,7 @@ class WorkingHours(models.Model):
     date = models.DateField(verbose_name="Data")
     start_time = models.TimeField(verbose_name="Pradžia")
     end_time = models.TimeField(verbose_name="Pabaiga")
-    interval = models.IntegerField(default=10, choices=INTERVAL_CHOICES, verbose_name="Laiko intervalas")
+    interval = models.IntegerField(default=0, choices=INTERVAL_CHOICES, verbose_name="Laiko intervalas")
     tipas = models.CharField(
         max_length=20,
         choices=TIPAS_CHOICES,
@@ -132,6 +145,10 @@ class WorkingHours(models.Model):
         ordering = ("date", "start_time")
         verbose_name = "Darbo laikas"
         verbose_name_plural = "Darbo laikai"
+
+    @property
+    def trukme(self):
+        return bloko_trukme(self)
 
     def __str__(self):
         return f"{self.date} {self.start_time}-{self.end_time} ({self.tipas})"
@@ -177,7 +194,7 @@ class Child(models.Model):
     )
 
     class Meta:
-        ordering = ("last_name", "first_name")
+        ordering = (lt("last_name"), lt("first_name"))
         verbose_name = "Vaikas"
         verbose_name_plural = "Vaikai"
 
@@ -212,7 +229,7 @@ class Reservation(models.Model):
 
     reserved_first_name = models.CharField(max_length=50, blank=True, verbose_name="Vaiko vardas")
     reserved_last_name = models.CharField(max_length=50, blank=True, verbose_name="Vaiko pavardė")
-    reserved_class = models.CharField(max_length=20, blank=True, verbose_name="Klasė")
+    reserved_class = models.CharField(max_length=50, blank=True, verbose_name="Klasė")
 
     # pokalbio tipas - fiksuojamas rezervavimo metu is darbo laiko bloko.
     # Reikalingas tam, kad mokytojo skydelyje individualiu ir dalykininku
@@ -303,7 +320,7 @@ class Vadovas(models.Model):
     )
 
     class Meta:
-        ordering = ("pavarde", "vardas")
+        ordering = (lt("pavarde"), lt("vardas"))
         verbose_name = "Vadovas"
         verbose_name_plural = "Vadovas"
 
@@ -325,7 +342,7 @@ class VadovoLaikas(models.Model):
     start_time = models.TimeField(verbose_name="Pradžia")
     end_time = models.TimeField(verbose_name="Pabaiga")
     interval = models.IntegerField(
-        default=15,
+        default=0,
         choices=WorkingHours.INTERVAL_CHOICES,
         verbose_name="Laiko intervalas",
     )
@@ -340,6 +357,10 @@ class VadovoLaikas(models.Model):
         ordering = ("date", "start_time")
         verbose_name = "Vadovo laikas"
         verbose_name_plural = "Vadovo laikai"
+
+    @property
+    def trukme(self):
+        return bloko_trukme(self)
 
     def __str__(self):
         return f"{self.vadovas} {self.date} {self.start_time}-{self.end_time}"
@@ -381,3 +402,13 @@ class VadovoRezervacija(models.Model):
 
     def __str__(self):
         return f"{self.mokytojas} -> {self.vadovas} | {self.date} {self.time}"
+
+
+class DuomenuImportas(Teacher):
+    """Ne atskira lentele - tik vieta admin meniu "Importuoti duomenys", kur
+    keliamas pilnas mokytoju sarasas (zr. duomenu_importas.py)."""
+
+    class Meta:
+        proxy = True
+        verbose_name = "Duomenų importas"
+        verbose_name_plural = "Importuoti duomenys"

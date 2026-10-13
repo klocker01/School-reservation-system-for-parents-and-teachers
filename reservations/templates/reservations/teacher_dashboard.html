@@ -13,6 +13,18 @@
         {% if mokytojas.kabinetas %}, kabinetas {{ mokytojas.kabinetas.pavadinimas }}{% endif %}
       </p>
     </div>
+    <!-- klases priskiria adminas. Mokytojas be klasiu dalykininku pokalbiuose
+         rodomas visu klasiu tevams (zr. views.home) -->
+    <div class="card__bd" style="display:grid; gap:10px;">
+      <div>
+        <strong>Auklėjama klasė:</strong>
+        {% for k in auklejamos_klases %}<span class="badge badge--free" style="margin:2px 4px 2px 0;">{{ k.pavadinimas }}</span>{% empty %}<span style="color:var(--muted);">nėra</span>{% endfor %}
+      </div>
+      <div>
+        <strong>Mokomos klasės:</strong>
+        {% for k in mokomos_klases %}<span class="badge" style="margin:2px 4px 2px 0;">{{ k.pavadinimas }}</span>{% empty %}<span style="color:var(--muted);">nepriskirtos – dalykininkų pokalbiuose jus mato visų klasių tėvai</span>{% endfor %}
+      </div>
+    </div>
   </div>
 
   <!-- Pridėti darbo laiką -->
@@ -51,8 +63,9 @@
           </p>
         </div>
 
-        <!-- pertrauka – nebūtina, daugiau galima pridėti po išsaugojimo -->
-        <div style="margin-top:16px;">
+        <!-- pertrauka – nebūtina, daugiau galima pridėti po išsaugojimo.
+             Pasirinkus "be intervalo" laikas yra vienas, tai pertraukos slepiamos -->
+        <div id="pertrauka-laukai" style="margin-top:16px;">
           <label style="font-weight:700; margin-bottom:8px; display:block;">Pertrauka (nebūtina)</label>
           <div style="display:flex; gap:12px; flex-wrap:wrap;">
             <div style="flex:1; min-width:100px;">
@@ -72,6 +85,22 @@
           <button class="btn" type="submit">Pridėti laikus pokalbiams</button>
         </div>
       </form>
+      <script>
+        (function () {
+          var intervalas = document.getElementById("{{ wh_form.interval.id_for_label }}");
+          var pertrauka = document.getElementById("pertrauka-laukai");
+          function rodyti() {
+            var be = intervalas.value === "0";
+            pertrauka.hidden = be;
+            pertrauka.querySelectorAll("input").forEach(function (i) {
+              i.disabled = be;
+              if (be) i.value = "";
+            });
+          }
+          intervalas.addEventListener("change", rodyti);
+          rodyti();
+        })();
+      </script>
     </div>
   </div>
 
@@ -105,7 +134,7 @@
                       </div>
                       <div class="blokas__meta">
                         {% if wh.tipas == "dalykininku" %}Dalykininkų{% else %}Individualūs{% endif %},
-                        kas {{ wh.interval }} min.,
+                        {% if wh.interval %}kas {{ wh.interval }} min.,{% else %}vienas laikas,{% endif %}
                         kabinetas: {% if wh.cabinet %}{{ wh.cabinet.pavadinimas }}{% else %}{{ mokytojas.kabinetas|default:"—" }}{% endif %}
                         {% if blokas.rezervaciju %}· rezervuota: {{ blokas.rezervaciju }}{% endif %}
                       </div>
@@ -169,7 +198,9 @@
                     </div>
                   {% endif %}
 
-                  <!-- Pridėti pertrauką – iskart prie sio bloko, niekur eiti nereikia -->
+                  <!-- Pridėti pertrauką – iskart prie sio bloko, niekur eiti nereikia.
+                       Laike be intervalo pertraukų nebūna -->
+                  {% if wh.interval %}
                   <details style="width:100%;">
                     <summary class="btn btn--ghost" style="cursor:pointer; display:inline-block;">+ Pridėti pertrauką</summary>
                     <form method="post" action="{% url 'teacher_add_break' wh.id %}"
@@ -200,6 +231,7 @@
                       </div>
                     </form>
                   </details>
+                  {% endif %}
 
                 </div>
                 {% endwith %}

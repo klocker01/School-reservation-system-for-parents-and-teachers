@@ -14,6 +14,7 @@ from .models import (
     Teacher, Reservation, WorkingHours, Break, Profile, Child, Klase, Cabinet,
     Vadovas, VadovoLaikas, VadovoRezervacija,
 )
+from .rusiavimas import lt
 
 
 class ChildForm(forms.ModelForm):
@@ -215,7 +216,7 @@ def mokytojo_laikai_pas_vadova(mokytojas, data):
         intervalas = 15
         for b in blokai:
             if b.vadovas_id == r.vadovas_id and b.start_time <= r.time < b.end_time:
-                intervalas = b.interval
+                intervalas = b.trukme
                 break
         pradzia = datetime.combine(data, r.time)
         uzimta.append((pradzia, pradzia + timedelta(minutes=intervalas)))
@@ -236,7 +237,7 @@ def tevu_laikai_pas_mokytoja(mokytojas, data):
         intervalas = 10
         for b in blokai:
             if b.tipas == r.tipas and b.start_time <= r.time < b.end_time:
-                intervalas = b.interval
+                intervalas = b.trukme
                 break
         pradzia = datetime.combine(data, r.time)
         uzimta.append((pradzia, pradzia + timedelta(minutes=intervalas)))
@@ -308,14 +309,14 @@ def sudaryti_laikus(mokytojas, pasirinkta_data, darbo_laikai, request_user=None,
                     pertrauka = True
                     break
             if pertrauka:
-                einamas += timedelta(minutes=darbo.interval)
+                einamas += timedelta(minutes=darbo.trukme)
                 continue
 
             # praeitas laikas siandien
             if pasirinkta_data == siandien:
                 dt = timezone.make_aware(datetime.combine(pasirinkta_data, laikas))
                 if dt < dabar:
-                    einamas += timedelta(minutes=darbo.interval)
+                    einamas += timedelta(minutes=darbo.trukme)
                     continue
 
             rez = rezervacijos.get(laikas)
@@ -364,7 +365,7 @@ def sudaryti_laikus(mokytojas, pasirinkta_data, darbo_laikai, request_user=None,
                         "status": "busy",
                         "by": kas
                     })
-            elif kertasi(einamas, darbo.interval, pas_vadova):
+            elif kertasi(einamas, darbo.trukme, pas_vadova):
                 laikai.append({
                     "time": laikas.strftime("%H:%M"),
                     "status": "busy",
@@ -376,7 +377,7 @@ def sudaryti_laikus(mokytojas, pasirinkta_data, darbo_laikai, request_user=None,
                     "status": "free",
                     "by": ""
                 })
-            einamas += timedelta(minutes=darbo.interval)
+            einamas += timedelta(minutes=darbo.trukme)
 
     # dublikatai
     matyti = set()
@@ -450,7 +451,7 @@ def teacher_schedule(request, date_str):
             Q(pavarde__icontains=paieska)
         )
 
-    mokytojai = mokytojai.order_by("pavarde", "vardas")
+    mokytojai = mokytojai.order_by(lt("pavarde"), lt("vardas"))
 
     # mokytojas vardus mato tik prie SAVO laiku - kitu mokytoju eilutese
     # jam, kaip ir tevams, rodoma tik "Uzimta"
@@ -484,7 +485,7 @@ def teacher_schedule(request, date_str):
             "teacher": mokytojas,
             "kabinetas": efektyvus_kabinetas,
             "slots": tvarkingi,
-            "intervalas": pirmas_blokas.interval if pirmas_blokas else 10,
+            "intervalas": pirmas_blokas.trukme if pirmas_blokas else 10,
         })
 
     return render(request, "reservations/teacher_schedule.html", {
@@ -546,7 +547,7 @@ def reserve_timeslot(request, teacher_id):
     if laikai:
         for wh in WorkingHours.objects.filter(mokytojai=mokytojas, date=data, tipas=tipas):
             if wh.start_time <= laikai[0] < wh.end_time:
-                intervalas = wh.interval
+                intervalas = wh.trukme
                 kabinetas = wh.cabinet or mokytojas.kabinetas
                 break
 
@@ -844,6 +845,8 @@ def teacher_dashboard(request):
 
     return render(request, "reservations/teacher_dashboard.html", {
         "mokytojas": mokytojas,
+        "auklejamos_klases": mokytojas.auklejamos_klases.all(),
+        "mokomos_klases": mokytojas.klases.all(),
         "dienos": dienos,
         "wh_form": wh_forma,
     })
@@ -958,7 +961,10 @@ def teacher_add_workinghours(request):
         bs = request.POST.get("break_start", "").strip().replace(".", ":")
         be = request.POST.get("break_end", "").strip().replace(".", ":")
 
-        if bs and be:
+        # blokas be intervalo yra vienas laikas - pertraukos jame nebūna
+        if not wh.interval and (bs or be):
+            messages.warning(request, "Pertrauka neišsaugota – laike be intervalo pertraukų būti negali")
+        elif bs and be:
             try:
                 ps = datetime.strptime(bs, "%H:%M").time()
                 pe = datetime.strptime(be, "%H:%M").time()
@@ -1031,7 +1037,7 @@ def teacher_delete_slot(request, wh_id):
     pradzia = datetime.combine(wh.date, wh.start_time)
     pabaiga = datetime.combine(wh.date, wh.end_time)
     t = datetime.combine(wh.date, laikas)
-    if not (pradzia <= t < pabaiga) or (t - pradzia) % timedelta(minutes=wh.interval):
+    if not (pradzia <= t < pabaiga) or (t - pradzia) % timedelta(minutes=wh.trukme):
         messages.error(request, "Toks laikas šiame bloke neegzistuoja")
         return atgal_i_grafika(wh.date)
 
@@ -1051,7 +1057,7 @@ def teacher_delete_slot(request, wh_id):
     Break.objects.create(
         working_hours=wh,
         start_time=laikas,
-        end_time=min(t + timedelta(minutes=wh.interval), pabaiga).time(),
+        end_time=min(t + timedelta(minutes=wh.trukme), pabaiga).time(),
         description="Pašalintas laikas",
         pasalintas_laikas=True,
     )
@@ -1068,6 +1074,10 @@ def teacher_add_break(request, wh_id):
     wh = get_object_or_404(WorkingHours, id=wh_id, mokytojai=mokytojas)
 
     if request.method != "POST":
+        return atgal_i_grafika(wh.date)
+
+    if not wh.interval:
+        messages.error(request, "Laike be intervalo pertraukų būti negali")
         return atgal_i_grafika(wh.date)
 
     forma = BreakForm(request.POST)

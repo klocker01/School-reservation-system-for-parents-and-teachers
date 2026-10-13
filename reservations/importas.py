@@ -8,16 +8,26 @@ from django.core.validators import validate_email
 from .models import Teacher, LeistinasEmail
 
 
-# antrasciu variantai, kuriuos atpazistame stulpeliuose
-VARDO_ANTRASTES = ("vardas", "first name", "firstname", "name")
-PAVARDES_ANTRASTES = ("pavarde", "pavardė", "last name", "lastname", "surname")
-EMAIL_ANTRASTES = ("el. paštas", "el.paštas", "el pastas", "paštas", "pastas", "email", "e-mail")
+# antrasciu pradzios, kurias atpazistame stulpeliuose. Lyginama pagal
+# pradzia, kad tiktu ir "El. pašto adresas", "Pavardės" ir pan.
+VARDO_ANTRASTES = ("vard", "first name", "firstname", "name")
+PAVARDES_ANTRASTES = ("pavard", "last name", "lastname", "surname")
+# ne "past", kad nepagautu stulpelio "Pastabos"
+EMAIL_ANTRASTES = ("el. pa", "el.pa", "el pa", "e. pa", "paštas", "pastas", "pašto", "pasto", "email", "e-mail")
 
 
 def _svarus(reiksme):
     if reiksme is None:
         return ""
+    # Excel skaicius atiduoda kaip float - 1.0 paverciam i "1"
+    if isinstance(reiksme, float) and reiksme.is_integer():
+        reiksme = int(reiksme)
     return str(reiksme).strip()
+
+
+def _langelis(eilute, i):
+    # openpyxl tuscias eilutes kartais grazina trumpesnes
+    return _svarus(eilute[i]) if i < len(eilute) else ""
 
 
 # is pirmos eilutes bandome suprasti, kuriame stulpelyje kas guli.
@@ -28,11 +38,11 @@ def rasti_stulpelius(eilute):
         tekstas = _svarus(langelis).lower()
         if not tekstas:
             continue
-        if tekstas in VARDO_ANTRASTES and "vardas" not in zemelapis:
-            zemelapis["vardas"] = i
-        elif tekstas in PAVARDES_ANTRASTES and "pavarde" not in zemelapis:
+        if tekstas.startswith(PAVARDES_ANTRASTES) and "pavarde" not in zemelapis:
             zemelapis["pavarde"] = i
-        elif tekstas in EMAIL_ANTRASTES and "email" not in zemelapis:
+        elif tekstas.startswith(VARDO_ANTRASTES) and "vardas" not in zemelapis:
+            zemelapis["vardas"] = i
+        elif tekstas.startswith(EMAIL_ANTRASTES) and "email" not in zemelapis:
             zemelapis["email"] = i
 
     if len(zemelapis) == 3:
@@ -88,28 +98,26 @@ def importuoti_mokytojus(failas, failo_vardas):
     zemelapis = rasti_stulpelius(eilutes[0])
     if zemelapis:
         duomenu_eilutes = eilutes[1:]
+        pirma_eilute = 2
     else:
         # antrasciu neradome - imame numatyta tvarka ir skaitome nuo pirmos eilutes
         zemelapis = {"vardas": 0, "pavarde": 1, "email": 2}
         duomenu_eilutes = eilutes
+        pirma_eilute = 1
 
     # jei pirmas stulpelis yra eiles numeris, viska pastumiam per viena
     if duomenu_eilutes:
-        pirmas = _svarus(duomenu_eilutes[0][0]) if duomenu_eilutes[0] else ""
+        pirmas = _langelis(duomenu_eilutes[0], 0)
         if pirmas.isdigit() and zemelapis == {"vardas": 0, "pavarde": 1, "email": 2}:
             zemelapis = {"vardas": 1, "pavarde": 2, "email": 3}
 
-    for nr, eilute in enumerate(duomenu_eilutes, start=2):
+    for nr, eilute in enumerate(duomenu_eilutes, start=pirma_eilute):
         if not eilute:
             continue
 
-        try:
-            vardas = _svarus(eilute[zemelapis["vardas"]])
-            pavarde = _svarus(eilute[zemelapis["pavarde"]])
-            email = _svarus(eilute[zemelapis["email"]]).lower()
-        except IndexError:
-            ataskaita["praleista"] += 1
-            continue
+        vardas = _langelis(eilute, zemelapis["vardas"])
+        pavarde = _langelis(eilute, zemelapis["pavarde"])
+        email = _langelis(eilute, zemelapis["email"]).lower()
 
         # visiskai tuscia eilute - tyliai praleidziam
         if not vardas and not pavarde and not email:
